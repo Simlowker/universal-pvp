@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '../contexts/GameContext';
 import { useWalletContext } from '../contexts/WalletContext';
+import { useRouter } from 'next/navigation';
 import Header from '../components/layout/Header';
 import GameLobby from '../components/game/GameLobby';
 import CharacterSelection from '../components/game/CharacterSelection';
@@ -16,17 +17,18 @@ import { Package } from 'lucide-react';
 export default function Home() {
   const { currentMatch, selectedCharacter, isInGame, isLoading } = useGame();
   const { wallet } = useWalletContext();
+  const router = useRouter();
   const [showNFTInventory, setShowNFTInventory] = useState(false);
   const [gamePhase, setGamePhase] = useState<'lobby' | 'character-select' | 'battle'>('lobby');
 
-  // Redirect to lobby page for main experience (disabled to prevent hydration issues)
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-  //     window.location.href = '/lobby';
-  //   }, 100);
-  //   
-  //   return () => clearTimeout(timer);
-  // }, []);
+  // Redirect to lobby page for main experience
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.push('/lobby');
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [router]);
 
   // Handle character selection completion
   const handleCharacterSelected = () => {
