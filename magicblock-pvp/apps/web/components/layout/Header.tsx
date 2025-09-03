@@ -8,6 +8,8 @@ import { useGame } from '../../contexts/GameContext';
 import { useWalletContext } from '../../contexts/WalletContext';
 import { useGameSounds, useSoundSettings } from '../../hooks/useSound';
 import SimpleWalletButton from '../wallet/SimpleWalletButton';
+import TestWalletButton from '../wallet/TestWalletButton';
+import BasicWalletButton from '../wallet/BasicWalletButton';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 
@@ -133,8 +135,12 @@ const Header: React.FC = () => {
                 <Settings className="h-4 w-4" />
               </Button>
 
-              {/* Wallet Button */}
-              <SimpleWalletButton />
+              {/* Wallet Buttons - Debug */}
+              <div className="flex flex-col gap-2">
+                <BasicWalletButton />
+                <SimpleWalletButton />
+                <TestWalletButton />
+              </div>
             </div>
 
             {/* Mobile Menu Button */}
