@@ -81,6 +81,8 @@ interface GameContextType extends GameState {
   leaveMatch: () => Promise<void>;
   refreshMatches: () => Promise<void>;
   refreshGameStats: () => Promise<void>;
+  performAction: (action: any) => Promise<void>;
+  gameActions?: any[];
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -298,6 +300,12 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     }
   }, [wallet.connected]);
 
+  // Placeholder performAction function
+  const performAction = async (action: any) => {
+    console.log('Performing action:', action);
+    // TODO: Implement action logic
+  };
+
   const value: GameContextType = {
     ...state,
     initializePlayer,
@@ -307,6 +315,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     leaveMatch,
     refreshMatches,
     refreshGameStats,
+    performAction,
+    gameActions: [],
   };
 
   return (
