@@ -21,14 +21,14 @@ export default function Home() {
   const [showNFTInventory, setShowNFTInventory] = useState(false);
   const [gamePhase, setGamePhase] = useState<'lobby' | 'character-select' | 'battle'>('lobby');
 
-  // Redirect to lobby page for main experience
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      router.push('/lobby');
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [router]);
+  // Redirect to lobby page for main experience (DISABLED FOR WALLET DEBUG)
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     router.push('/lobby');
+  //   }, 500);
+  //   
+  //   return () => clearTimeout(timer);
+  // }, [router]);
 
   // Handle character selection completion
   const handleCharacterSelected = () => {

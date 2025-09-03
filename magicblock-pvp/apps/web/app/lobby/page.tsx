@@ -10,6 +10,8 @@ import { useRealTimeUpdates } from '../../hooks/useRealTimeUpdates';
 import Button from '../../components/ui/Button';
 import { LiveFeed } from '../../components/game/LiveFeed';
 import { StatCard } from '../../components/ui/StatCard';
+import DiagnosticWalletTest from '../../components/wallet/DiagnosticWalletTest';
+import DirectWalletButton from '../../components/wallet/DirectWalletButton';
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -281,6 +283,14 @@ export default function LobbyPage() {
             </motion.div>
           </div>
         </div>
+      </div>
+
+      {/* Wallet Debug Tools */}
+      <DiagnosticWalletTest />
+      
+      {/* Debug Direct Connect */}
+      <div className="fixed bottom-4 left-4 z-50">
+        <DirectWalletButton />
       </div>
 
       {/* Background Effects */}
