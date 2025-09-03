@@ -4,5 +4,5 @@
   "buildCommand": "cd magicblock-pvp && npm run build",
   "outputDirectory": "magicblock-pvp/apps/web/.next",
   "framework": "nextjs",
-  "installCommand": "cd magicblock-pvp && npm install"
+  "installCommand": "npm install && cd magicblock-pvp && npm install"
 }

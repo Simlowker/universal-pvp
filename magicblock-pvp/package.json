@@ -40,7 +40,7 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "security:audit": "npm audit && snyk test",
-    "prepare": "husky install || true"
+    "postinstall": "echo 'Installation complete'"
   },
   "devDependencies": {
     "@faker-js/faker": "^8.3.1",
