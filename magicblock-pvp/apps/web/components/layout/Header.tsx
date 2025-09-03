@@ -11,6 +11,7 @@ import SimpleWalletButton from '../wallet/SimpleWalletButton';
 import TestWalletButton from '../wallet/TestWalletButton';
 import BasicWalletButton from '../wallet/BasicWalletButton';
 import DirectWalletButton from '../wallet/DirectWalletButton';
+import DiagnosticWalletTest from '../wallet/DiagnosticWalletTest';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 
@@ -360,6 +361,9 @@ const Header: React.FC = () => {
           </Button>
         </div>
       </Modal>
+
+      {/* Diagnostic Tool */}
+      <DiagnosticWalletTest />
 
       {/* Custom CSS for sliders */}
       <style jsx>{`
