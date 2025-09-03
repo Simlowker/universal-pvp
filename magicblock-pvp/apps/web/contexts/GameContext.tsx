@@ -78,7 +78,7 @@ interface GameContextType extends GameState {
   selectCharacter: (character: Character) => void;
   joinMatch: (matchId: string) => Promise<void>;
   createMatch: (betAmount: number) => Promise<void>;
-  leaveMatch: () => Promise<void>;
+  leaveMatch: (matchId?: string) => Promise<void>;
   refreshMatches: () => Promise<void>;
   refreshGameStats: () => Promise<void>;
   performAction: (action: any) => Promise<void>;
@@ -232,7 +232,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
   };
 
   // Leave current match
-  const leaveMatch = async () => {
+  const leaveMatch = async (matchId?: string) => {
     dispatch({ type: 'SET_CURRENT_MATCH', payload: null });
     dispatch({ type: 'SET_IS_IN_GAME', payload: false });
   };

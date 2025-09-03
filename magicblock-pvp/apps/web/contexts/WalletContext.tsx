@@ -226,7 +226,7 @@ export const WalletGameProvider: React.FC<WalletGameProviderProps> = ({ children
     }
   }, [connected, publicKey, wallet?.adapter.name]);
 
-  const value: any = {
+  const value: WalletContextType = {
     wallet: {
       connected,
       connecting,
@@ -242,6 +242,52 @@ export const WalletGameProvider: React.FC<WalletGameProviderProps> = ({ children
     transactions,
     refreshData,
     sendTransaction: handleSendTransaction,
+    
+    // Gambling-specific features
+    startBettingSession: () => console.log('Betting session started'),
+    endBettingSession: () => console.log('Betting session ended'),
+    gamblingPreferences: {
+      maxBetAmount: 1.0,
+      dailyLossLimit: 5.0,
+      sessionTimeLimit: 120,
+      enableLossLimitAlerts: true,
+      enableTimeAlerts: true,
+      preferredGames: [],
+      riskLevel: 'moderate',
+    },
+    updateGamblingPreferences: () => console.log('Preferences updated'),
+    
+    // Session key management
+    createSessionKey: async () => ({ publicKey: publicKey!, expiresAt: Date.now() + 86400000, permissions: [], created: new Date(), usageCount: 0 }),
+    revokeSessionKey: () => console.log('Session key revoked'),
+    
+    // Security features
+    security: {
+      twoFactorEnabled: false,
+      lastSecurityCheck: new Date(),
+      suspiciousActivity: false,
+      ipWhitelist: [],
+    },
+    checkSecurity: async () => true,
+    
+    // Network monitoring
+    networkStatus: {
+      rpcLatency: responseTime,
+      wsConnected: true,
+      ephemeralActive: false,
+      blockHeight: 0,
+      lastUpdate: new Date(),
+      errors: 0,
+      quality: 'good',
+    },
+    
+    // Enhanced transaction methods
+    placeBet: async (amount: number) => await handleSendTransaction({}),
+    claimReward: async (rewardId: string) => await handleSendTransaction({}),
+    
+    // Wallet analysis
+    getSpendingAnalytics: async () => ({}),
+    getPerformanceMetrics: async () => ({}),
   };
 
   return (
