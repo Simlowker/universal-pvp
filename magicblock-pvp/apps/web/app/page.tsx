@@ -19,14 +19,14 @@ export default function Home() {
   const [showNFTInventory, setShowNFTInventory] = useState(false);
   const [gamePhase, setGamePhase] = useState<'lobby' | 'character-select' | 'battle'>('lobby');
 
-  // Redirect to lobby page for main experience
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      window.location.href = '/lobby';
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, []);
+  // Redirect to lobby page for main experience (disabled to prevent hydration issues)
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     window.location.href = '/lobby';
+  //   }, 100);
+  //   
+  //   return () => clearTimeout(timer);
+  // }, []);
 
   // Handle character selection completion
   const handleCharacterSelected = () => {

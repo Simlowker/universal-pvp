@@ -7,7 +7,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useGame } from '../../contexts/GameContext';
 import { useWalletContext } from '../../contexts/WalletContext';
 import { useGameSounds, useSoundSettings } from '../../hooks/useSound';
-import WalletButton from '../wallet/WalletButton';
+import SimpleWalletButton from '../wallet/SimpleWalletButton';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 
@@ -134,12 +134,12 @@ const Header: React.FC = () => {
               </Button>
 
               {/* Wallet Button */}
-              <WalletButton />
+              <SimpleWalletButton />
             </div>
 
             {/* Mobile Menu Button */}
             <div className="lg:hidden flex items-center gap-2">
-              <WalletButton />
+              <SimpleWalletButton />
               <Button
                 onClick={toggleMobileMenu}
                 variant="ghost"

@@ -59,7 +59,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   };
 
   if (!mounted) {
-    return null;
+    // Prevent hydration mismatch by returning the same structure
+    return (
+      <ThemeContext.Provider value={{ theme: 'dark', toggleTheme: () => {}, setTheme: () => {} }}>
+        {children}
+      </ThemeContext.Provider>
+    );
   }
 
   return (
