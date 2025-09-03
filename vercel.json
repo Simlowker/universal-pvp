@@ -2,6 +2,5 @@
   "name": "universal-pvp-devnet",
   "version": 2,
   "buildCommand": "npm run build",
-  "outputDirectory": "magicblock-pvp/apps/web/.next",
-  "framework": "nextjs"
+  "outputDirectory": ".next"
 }
