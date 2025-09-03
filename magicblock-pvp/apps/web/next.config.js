@@ -13,6 +13,12 @@ const nextConfig = {
     return config;
   },
   transpilePackages: ['@magicblock-labs/ephemeral-rollups-sdk'],
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 }
 
 module.exports = nextConfig

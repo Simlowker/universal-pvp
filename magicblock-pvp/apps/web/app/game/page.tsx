@@ -99,7 +99,7 @@ export default function GamePage() {
         ? { type: action, amount: raiseAmount }
         : { type: action };
         
-      await performAction(currentMatch.id, actionData);
+      await performAction(actionData);
       
       // Success sound
       playSound('actionSuccess');
