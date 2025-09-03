@@ -1,0 +1,55 @@
+name: Deploy to Vercel (Devnet)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NEXT_PUBLIC_SOLANA_NETWORK: devnet
+  NEXT_PUBLIC_SOLANA_RPC_HOST: https://api.devnet.solana.com
+  NEXT_PUBLIC_SOLANA_WS_HOST: wss://api.devnet.solana.com
+  NEXT_PUBLIC_STRATEGIC_DUEL_PROGRAM_ID: 6gaBQmha1o6u26PWb9quyzhcxufGWAWBYr71m6e6F3GD
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'magicblock-pvp/apps/web/package-lock.json'
+
+    - name: Install dependencies
+      run: |
+        cd magicblock-pvp/apps/web
+        npm ci
+
+    - name: Build application
+      run: |
+        cd magicblock-pvp/apps/web
+        npm run build
+      env:
+        NEXT_PUBLIC_SOLANA_NETWORK: devnet
+        NEXT_PUBLIC_SOLANA_RPC_HOST: https://api.devnet.solana.com
+        NEXT_PUBLIC_SOLANA_WS_HOST: wss://api.devnet.solana.com
+        NEXT_PUBLIC_STRATEGIC_DUEL_PROGRAM_ID: 6gaBQmha1o6u26PWb9quyzhcxufGWAWBYr71m6e6F3GD
+
+    - name: Deploy to Vercel
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        vercel-org-id: ${{ secrets.ORG_ID }}
+        vercel-project-id: ${{ secrets.PROJECT_ID }}
+        working-directory: ./magicblock-pvp/apps/web
+        scope: ${{ secrets.TEAM_ID }}
+        alias-domains: |
+          universal-pvp-devnet.vercel.app
