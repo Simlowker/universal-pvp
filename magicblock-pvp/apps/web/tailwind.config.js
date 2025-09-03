@@ -1,21 +1,15 @@
-const baseConfig = require('@magicblock-pvp/config/tailwind');
-
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  ...baseConfig,
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
-    '../../packages/ui/src/**/*.{js,ts,jsx,tsx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   darkMode: 'class',
   theme: {
-    ...baseConfig.theme,
     extend: {
-      ...baseConfig.theme.extend,
       colors: {
-        ...baseConfig.theme.extend.colors,
         // Shadcn/UI theme colors using CSS variables
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -79,8 +73,8 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        ...baseConfig.theme.extend.fontFamily,
         gaming: ['Orbitron', 'monospace'],
+        mono: ['JetBrains Mono', 'monospace'],
       },
       animation: {
         'pulse-glow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -105,5 +99,7 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('tailwindcss-animate'),
+  ],
 };

@@ -1,23 +1,9 @@
 {
   "name": "universal-pvp-devnet",
   "version": 2,
-  "builds": [
-    {
-      "src": "magicblock-pvp/apps/web/package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "magicblock-pvp/apps/web/$1"
-    }
-  ],
-  "env": {
-    "NEXT_PUBLIC_SOLANA_NETWORK": "devnet",
-    "NEXT_PUBLIC_SOLANA_RPC_HOST": "https://api.devnet.solana.com",
-    "NEXT_PUBLIC_SOLANA_WS_HOST": "wss://api.devnet.solana.com",
-    "NEXT_PUBLIC_STRATEGIC_DUEL_PROGRAM_ID": "6gaBQmha1o6u26PWb9quyzhcxufGWAWBYr71m6e6F3GD",
-    "NODE_ENV": "production"
-  }
+  "buildCommand": "cd magicblock-pvp && npm run build",
+  "outputDirectory": "magicblock-pvp/apps/web/.next",
+  "framework": "nextjs",
+  "installCommand": "cd magicblock-pvp && npm install",
+  "rootDirectory": "magicblock-pvp/apps/web"
 }
