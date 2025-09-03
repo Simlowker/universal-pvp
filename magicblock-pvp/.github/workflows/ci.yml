@@ -1,0 +1,545 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '20'
+  ANCHOR_VERSION: '0.30.0'
+  SOLANA_VERSION: '1.17.0'
+
+jobs:
+  # Lint and type checking
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run type checking
+        run: npm run type-check
+
+  # Security scanning
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+
+      - name: Run npm audit
+        run: npm audit --audit-level moderate
+
+  # Unit tests
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: ['sdk', 'server', 'ui', 'config']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:coverage
+        env:
+          CI: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage
+          flags: ${{ matrix.package }}
+          name: ${{ matrix.package }}-coverage
+
+      - name: Check coverage thresholds
+        run: |
+          if [[ "${{ matrix.package }}" == "sdk" ]]; then
+            THRESHOLD=90
+          elif [[ "${{ matrix.package }}" == "server" ]]; then
+            THRESHOLD=85
+          else
+            THRESHOLD=80
+          fi
+          
+          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "Coverage for ${{ matrix.package }}: ${COVERAGE}%"
+          
+          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+            echo "Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+            exit 1
+          fi
+
+  # Contract tests
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Setup Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_VERSION }}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Setup Anchor CLI
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install ${{ env.ANCHOR_VERSION }}
+          avm use ${{ env.ANCHOR_VERSION }}
+
+      - name: Cache Anchor dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: anchor-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build contracts
+        working-directory: ./apps/contracts
+        run: anchor build
+
+      - name: Run contract tests
+        working-directory: ./apps/contracts
+        run: anchor test --skip-local-validator
+        env:
+          ANCHOR_WALLET: ~/.config/solana/id.json
+
+      - name: Check contract coverage
+        working-directory: ./apps/contracts
+        run: |
+          # Check if all program instructions are tested
+          INSTRUCTIONS=$(anchor idl parse --file target/idl/pvp_game.json | jq '.instructions | length')
+          TESTED_INSTRUCTIONS=$(grep -c "it.*should.*" tests/*.ts || echo "0")
+          
+          echo "Instructions: $INSTRUCTIONS, Tested: $TESTED_INSTRUCTIONS"
+          
+          if [ "$TESTED_INSTRUCTIONS" -lt "$INSTRUCTIONS" ]; then
+            echo "Not all contract instructions are tested"
+            exit 1
+          fi
+
+  # Integration tests
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run database migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+
+  # E2E tests
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Build application
+        run: npm run build
+
+      - name: Start test environment
+        run: |
+          npm run test:e2e:setup &
+          sleep 30
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          NODE_ENV: test
+          BASE_URL: http://localhost:3000
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+  # Load tests
+  load-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install K6
+        run: |
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Start test environment
+        run: |
+          npm run start &
+          sleep 30
+
+      - name: Run load tests
+        run: k6 run tests/load/k6-load-test.js
+        env:
+          BASE_URL: http://localhost:3000
+          VU_COUNT: 20
+          DURATION: '2m'
+
+      - name: Upload load test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: load-test-results
+          path: load-test-results.json
+
+  # Build and publish
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, security, unit-tests, contract-tests, integration-tests]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all packages
+        run: npm run build
+
+      - name: Build Docker images
+        run: |
+          docker build -t magicblock-pvp/server:${{ github.sha }} -f apps/server/Dockerfile .
+          docker build -t magicblock-pvp/web:${{ github.sha }} -f apps/web/Dockerfile .
+
+      - name: Save Docker images
+        run: |
+          docker save magicblock-pvp/server:${{ github.sha }} | gzip > server-image.tar.gz
+          docker save magicblock-pvp/web:${{ github.sha }} | gzip > web-image.tar.gz
+
+      - name: Upload Docker images
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-images
+          path: |
+            server-image.tar.gz
+            web-image.tar.gz
+
+  # Deployment (staging)
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [build, e2e-tests]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-images
+
+      - name: Load Docker images
+        run: |
+          docker load < server-image.tar.gz
+          docker load < web-image.tar.gz
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Push images to ECR
+        run: |
+          docker tag magicblock-pvp/server:${{ github.sha }} ${{ secrets.ECR_REGISTRY }}/magicblock-pvp-server:staging
+          docker tag magicblock-pvp/web:${{ github.sha }} ${{ secrets.ECR_REGISTRY }}/magicblock-pvp-web:staging
+          
+          docker push ${{ secrets.ECR_REGISTRY }}/magicblock-pvp-server:staging
+          docker push ${{ secrets.ECR_REGISTRY }}/magicblock-pvp-web:staging
+
+      - name: Deploy to staging ECS
+        run: |
+          aws ecs update-service \
+            --cluster magicblock-pvp-staging \
+            --service magicblock-pvp-server \
+            --force-new-deployment
+
+      - name: Run smoke tests on staging
+        run: |
+          sleep 60  # Wait for deployment
+          curl -f ${{ secrets.STAGING_URL }}/health || exit 1
+          
+          # Run critical path smoke tests
+          npm run test:smoke -- --env=staging
+
+  # Deployment (production)
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [build, e2e-tests, load-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker images
+        uses: actions/download-artifact@v3
+        with:
+          name: docker-images
+
+      - name: Load Docker images
+        run: |
+          docker load < server-image.tar.gz
+          docker load < web-image.tar.gz
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Push images to ECR
+        run: |
+          docker tag magicblock-pvp/server:${{ github.sha }} ${{ secrets.ECR_REGISTRY_PROD }}/magicblock-pvp-server:latest
+          docker tag magicblock-pvp/web:${{ github.sha }} ${{ secrets.ECR_REGISTRY_PROD }}/magicblock-pvp-web:latest
+          
+          docker push ${{ secrets.ECR_REGISTRY_PROD }}/magicblock-pvp-server:latest
+          docker push ${{ secrets.ECR_REGISTRY_PROD }}/magicblock-pvp-web:latest
+
+      - name: Blue-Green deployment
+        run: |
+          # Scale up new version
+          aws ecs update-service \
+            --cluster magicblock-pvp-production \
+            --service magicblock-pvp-server \
+            --desired-count 4
+          
+          # Wait for healthy deployment
+          aws ecs wait services-stable \
+            --cluster magicblock-pvp-production \
+            --services magicblock-pvp-server
+          
+          # Run health checks
+          for i in {1..5}; do
+            if curl -f ${{ secrets.PRODUCTION_URL }}/health; then
+              echo "Health check passed"
+              break
+            fi
+            echo "Health check failed, retrying..."
+            sleep 30
+          done
+
+      - name: Run production smoke tests
+        run: |
+          # Run critical production smoke tests
+          npm run test:smoke -- --env=production --critical-only
+
+      - name: Notify deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          custom_payload: |
+            {
+              "text": "Production deployment completed",
+              "attachments": [{
+                "color": "good",
+                "fields": [{
+                  "title": "Environment",
+                  "value": "Production",
+                  "short": true
+                }, {
+                  "title": "Version",
+                  "value": "${{ github.sha }}",
+                  "short": true
+                }, {
+                  "title": "Status",
+                  "value": "Success",
+                  "short": true
+                }]
+              }]
+            }
+
+  # Performance monitoring
+  monitor:
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Setup monitoring alerts
+        run: |
+          # Configure Datadog monitors
+          curl -X POST "https://api.datadoghq.com/api/v1/monitor" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+            -H "DD-APPLICATION-KEY: ${{ secrets.DATADOG_APP_KEY }}" \
+            -d '{
+              "type": "metric alert",
+              "query": "avg(last_5m):avg:magicblock.game_creation_latency{env:production} > 0.2",
+              "name": "High Game Creation Latency",
+              "message": "Game creation latency is above 200ms threshold",
+              "tags": ["env:production", "service:magicblock-pvp"],
+              "priority": 2
+            }'
+
+      - name: Start synthetic monitoring
+        run: |
+          # Start synthetic tests to monitor critical paths
+          curl -X POST "https://api.datadoghq.com/api/v1/synthetics/tests" \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+            -H "DD-APPLICATION-KEY: ${{ secrets.DATADOG_APP_KEY }}" \
+            -d '{
+              "type": "api",
+              "subtype": "http",
+              "name": "Game Creation API Test",
+              "request": {
+                "method": "POST",
+                "url": "${{ secrets.PRODUCTION_URL }}/api/games",
+                "headers": {
+                  "Content-Type": "application/json"
+                }
+              },
+              "assertions": [
+                {
+                  "operator": "is",
+                  "type": "statusCode",
+                  "target": 201
+                },
+                {
+                  "operator": "lessThan",
+                  "type": "responseTime", 
+                  "target": 200
+                }
+              ],
+              "locations": ["aws:us-east-1"],
+              "options": {
+                "tick_every": 300
+              }
+            }'

@@ -1,0 +1,322 @@
+# Docker Compose for Universal PVP Monitoring Stack
+# Complete observability solution with Prometheus, Grafana, Alertmanager, and supporting services
+
+version: '3.8'
+
+networks:
+  monitoring:
+    driver: bridge
+  app:
+    external: true
+    name: universal-pvp-network
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+  victoriametrics_data:
+  loki_data:
+
+services:
+  # Prometheus - Metrics collection and storage
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: universal-pvp-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--web.external-url=http://localhost:9090'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - ./recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring
+      - app
+    depends_on:
+      - node-exporter
+      - cadvisor
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.localhost`)"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+
+  # Grafana - Visualization and dashboards
+  grafana:
+    image: grafana/grafana:10.1.5
+    container_name: universal-pvp-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel,grafana-piechart-panel
+      - GF_FEATURE_TOGGLES_ENABLE=ngalert
+      - GF_UNIFIED_ALERTING_ENABLED=true
+      - GF_ALERTING_ENABLED=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboard-strategic-duel.json:/var/lib/grafana/dashboards/strategic-duel.json:ro
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  # Alertmanager - Alert routing and notifications
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: universal-pvp-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--cluster.listen-address=0.0.0.0:9094'
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - monitoring
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.localhost`)"
+
+  # VictoriaMetrics - Long-term metrics storage (alternative to Prometheus for large datasets)
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.93.5
+    container_name: universal-pvp-victoriametrics
+    restart: unless-stopped
+    ports:
+      - "8428:8428"
+    command:
+      - '--storageDataPath=/storage'
+      - '--retentionPeriod=12w'
+      - '--httpListenAddr=:8428'
+    volumes:
+      - victoriametrics_data:/storage
+    networks:
+      - monitoring
+
+  # Loki - Log aggregation
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: universal-pvp-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command:
+      - '-config.file=/etc/loki/local-config.yaml'
+    volumes:
+      - loki_data:/tmp/loki
+    networks:
+      - monitoring
+
+  # Promtail - Log collection agent
+  promtail:
+    image: grafana/promtail:2.9.2
+    container_name: universal-pvp-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./promtail.yml:/etc/promtail/config.yml:ro
+    command:
+      - '-config.file=/etc/promtail/config.yml'
+    networks:
+      - monitoring
+    depends_on:
+      - loki
+
+  # Node Exporter - System metrics
+  node-exporter:
+    image: prom/node-exporter:v1.6.1
+    container_name: universal-pvp-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - monitoring
+
+  # cAdvisor - Container metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: universal-pvp-cadvisor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - monitoring
+    privileged: true
+
+  # Redis Exporter - Redis metrics
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.52.0
+    container_name: universal-pvp-redis-exporter
+    restart: unless-stopped
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    networks:
+      - monitoring
+      - app
+    depends_on:
+      - redis
+
+  # PostgreSQL Exporter - Database metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.13.2
+    container_name: universal-pvp-postgres-exporter
+    restart: unless-stopped
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-universal_pvp}?sslmode=disable
+    networks:
+      - monitoring
+      - app
+    depends_on:
+      - postgres
+
+  # Nginx Exporter - Web server metrics (if using nginx)
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:0.11.0
+    container_name: universal-pvp-nginx-exporter
+    restart: unless-stopped
+    ports:
+      - "9113:9113"
+    command:
+      - '-nginx.scrape-uri=http://nginx:80/nginx_status'
+    networks:
+      - monitoring
+      - app
+    profiles:
+      - nginx
+
+  # Blackbox Exporter - Endpoint monitoring
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: universal-pvp-blackbox-exporter
+    restart: unless-stopped
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    networks:
+      - monitoring
+      - app
+
+  # PushGateway - For batch job metrics
+  pushgateway:
+    image: prom/pushgateway:v1.6.2
+    container_name: universal-pvp-pushgateway
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+    networks:
+      - monitoring
+
+  # Jaeger - Distributed tracing (optional)
+  jaeger:
+    image: jaegertracing/all-in-one:1.49
+    container_name: universal-pvp-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - monitoring
+    profiles:
+      - tracing
+
+  # Supporting services for the application
+  redis:
+    image: redis:7.2-alpine
+    container_name: universal-pvp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - app
+    profiles:
+      - app-services
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: universal-pvp-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-universal_pvp}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app
+    profiles:
+      - app-services
+
+  # Traefik - Reverse proxy with automatic service discovery
+  traefik:
+    image: traefik:v3.0
+    container_name: universal-pvp-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "8081:8080"
+    command:
+      - '--api.insecure=true'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - monitoring
+      - app
+    profiles:
+      - proxy
+
+volumes:
+  redis_data:
+  postgres_data:

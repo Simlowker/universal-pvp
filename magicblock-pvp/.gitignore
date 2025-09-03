@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+# Production
+build/
+dist/
+.next/
+out/
+
+# Environment variables
+.env
+.env*.local
+
+# Vercel
+.vercel
+
+# Turbo
+.turbo
+
+# Testing
+coverage/
+.nyc_output
+
+# Misc
+.DS_Store
+*.tsbuildinfo
+.vscode/settings.json
+
+# Rust/Cargo
+target/
+Cargo.lock
+**/*.rs.bk
+
+# Anchor
+.anchor
+test-ledger/

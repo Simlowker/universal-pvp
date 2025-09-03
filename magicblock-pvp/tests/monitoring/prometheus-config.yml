@@ -1,0 +1,373 @@
+# Prometheus Configuration for MagicBlock PvP Game Monitoring
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+# Alert manager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Scrape configurations
+scrape_configs:
+  # Application metrics
+  - job_name: 'magicblock-pvp-app'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+        - 'app:3000'
+        - 'app:3001'
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'magicblock_.*'
+        action: keep
+
+  # Node.js process metrics
+  - job_name: 'nodejs-metrics'
+    metrics_path: '/metrics/nodejs'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+        - 'app:3000'
+
+  # Database metrics (PostgreSQL)
+  - job_name: 'postgres-exporter'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+        - 'postgres-exporter:9187'
+
+  # Redis metrics
+  - job_name: 'redis-exporter'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+        - 'redis-exporter:9121'
+
+  # NGINX metrics
+  - job_name: 'nginx-exporter'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+        - 'nginx-exporter:9113'
+
+  # System metrics (node_exporter)
+  - job_name: 'node-exporter'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+        - 'node-exporter:9100'
+
+  # Container metrics (cAdvisor)
+  - job_name: 'cadvisor'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+        - 'cadvisor:8080'
+
+  # Kubernetes metrics (if running on K8s)
+  - job_name: 'kubernetes-apiservers'
+    kubernetes_sd_configs:
+      - role: endpoints
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+  - job_name: 'kubernetes-nodes'
+    kubernetes_sd_configs:
+      - role: node
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+
+  # Custom game metrics endpoint
+  - job_name: 'game-metrics'
+    metrics_path: '/api/metrics/games'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    static_configs:
+      - targets:
+        - 'app:3000'
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: '(magicblock_games_.*|magicblock_moves_.*|magicblock_vrf_.*)'
+        action: keep
+
+  # VRF performance metrics
+  - job_name: 'vrf-metrics'
+    metrics_path: '/api/metrics/vrf'
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    static_configs:
+      - targets:
+        - 'app:3000'
+
+  # Blockchain RPC metrics
+  - job_name: 'solana-rpc-metrics'
+    metrics_path: '/api/metrics/blockchain'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+        - 'app:3000'
+
+  # WebSocket metrics
+  - job_name: 'websocket-metrics'
+    metrics_path: '/api/metrics/websocket'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+        - 'app:3000'
+
+  # Cost monitoring metrics
+  - job_name: 'cost-metrics'
+    metrics_path: '/api/metrics/costs'
+    scrape_interval: 60s
+    static_configs:
+      - targets:
+        - 'app:3000'
+
+  # Load balancer metrics (if using external LB)
+  - job_name: 'haproxy-exporter'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+        - 'haproxy-exporter:8404'
+
+# Remote write configuration (for long-term storage)
+remote_write:
+  - url: "https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push"
+    basic_auth:
+      username: "${GRAFANA_CLOUD_PROMETHEUS_USER}"
+      password: "${GRAFANA_CLOUD_PROMETHEUS_PASSWORD}"
+    queue_config:
+      capacity: 10000
+      max_shards: 200
+      min_shards: 1
+      max_samples_per_send: 1000
+      batch_send_deadline: 5s
+      min_backoff: 30ms
+      max_backoff: 100ms
+
+# Recording rules for aggregation
+recording_rules:
+  - group: "magicblock_game_metrics"
+    interval: "30s"
+    rules:
+      - record: "magicblock:game_creation_rate"
+        expr: "rate(magicblock_games_created_total[5m])"
+
+      - record: "magicblock:game_completion_rate"
+        expr: "rate(magicblock_games_completed_total[5m])"
+
+      - record: "magicblock:move_submission_rate"
+        expr: "rate(magicblock_moves_submitted_total[5m])"
+
+      - record: "magicblock:game_duration_p95"
+        expr: "histogram_quantile(0.95, rate(magicblock_game_duration_seconds_bucket[5m]))"
+
+      - record: "magicblock:move_latency_p95"
+        expr: "histogram_quantile(0.95, rate(magicblock_move_latency_seconds_bucket[5m]))"
+
+      - record: "magicblock:vrf_latency_p95"
+        expr: "histogram_quantile(0.95, rate(magicblock_vrf_latency_seconds_bucket[5m]))"
+
+  - group: "magicblock_sla_metrics"
+    interval: "60s"
+    rules:
+      - record: "magicblock:success_rate_5m"
+        expr: "rate(magicblock_requests_success_total[5m]) / rate(magicblock_requests_total[5m])"
+
+      - record: "magicblock:error_rate_5m"
+        expr: "rate(magicblock_requests_error_total[5m]) / rate(magicblock_requests_total[5m])"
+
+      - record: "magicblock:availability_5m"
+        expr: "up"
+
+  - group: "magicblock_cost_metrics"
+    interval: "300s"
+    rules:
+      - record: "magicblock:cost_per_transaction_p95"
+        expr: "histogram_quantile(0.95, rate(magicblock_transaction_cost_lamports_bucket[5m]))"
+
+      - record: "magicblock:hourly_cost_burn"
+        expr: "rate(magicblock_total_cost_lamports[1h])"
+
+# Alert rules
+alert_rules:
+  - group: "magicblock_sla_alerts"
+    rules:
+      - alert: "GameCreationLatencyHigh"
+        expr: "magicblock:game_creation_latency_p95 > 0.2"
+        for: "2m"
+        labels:
+          severity: "warning"
+          team: "backend"
+        annotations:
+          summary: "Game creation latency is high"
+          description: "P95 game creation latency is {{ $value }}s, above 200ms threshold"
+
+      - alert: "GameCreationLatencyCritical"
+        expr: "magicblock:game_creation_latency_p95 > 0.5"
+        for: "1m"
+        labels:
+          severity: "critical"
+          team: "backend"
+        annotations:
+          summary: "Game creation latency is critically high"
+          description: "P95 game creation latency is {{ $value }}s, above 500ms critical threshold"
+
+      - alert: "VRFLatencyHigh"
+        expr: "magicblock:vrf_latency_p95 > 0.01"
+        for: "1m"
+        labels:
+          severity: "critical"
+          team: "blockchain"
+        annotations:
+          summary: "VRF latency is high"
+          description: "P95 VRF latency is {{ $value }}s, above 10ms threshold"
+
+      - alert: "ErrorRateHigh"
+        expr: "magicblock:error_rate_5m > 0.001"
+        for: "5m"
+        labels:
+          severity: "warning"
+          team: "backend"
+        annotations:
+          summary: "Error rate is high"
+          description: "Error rate is {{ $value | humanizePercentage }}, above 0.1% threshold"
+
+      - alert: "SuccessRateLow"
+        expr: "magicblock:success_rate_5m < 0.999"
+        for: "5m"
+        labels:
+          severity: "critical"
+          team: "backend"
+        annotations:
+          summary: "Success rate is below SLA"
+          description: "Success rate is {{ $value | humanizePercentage }}, below 99.9% SLA"
+
+      - alert: "ServiceDown"
+        expr: "up == 0"
+        for: "1m"
+        labels:
+          severity: "critical"
+          team: "sre"
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute"
+
+      - alert: "HighTransactionCosts"
+        expr: "magicblock:cost_per_transaction_p95 > 100000"
+        for: "5m"
+        labels:
+          severity: "warning"
+          team: "blockchain"
+        annotations:
+          summary: "Transaction costs are high"
+          description: "P95 transaction cost is {{ $value }} lamports, above 100k threshold"
+
+      - alert: "DatabaseConnectionsHigh"
+        expr: "postgres_connections_active / postgres_connections_max > 0.8"
+        for: "5m"
+        labels:
+          severity: "warning"
+          team: "database"
+        annotations:
+          summary: "Database connections are high"
+          description: "Database connections are at {{ $value | humanizePercentage }} of maximum"
+
+      - alert: "RedisMemoryHigh"
+        expr: "redis_memory_used_bytes / redis_memory_max_bytes > 0.9"
+        for: "5m"
+        labels:
+          severity: "warning"
+          team: "cache"
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "Redis memory usage is at {{ $value | humanizePercentage }} of maximum"
+
+      - alert: "DiskSpaceHigh"
+        expr: "(1 - node_filesystem_free_bytes / node_filesystem_size_bytes) > 0.85"
+        for: "5m"
+        labels:
+          severity: "warning"
+          team: "infrastructure"
+        annotations:
+          summary: "Disk space usage is high"
+          description: "Disk usage on {{ $labels.device }} is {{ $value | humanizePercentage }}"
+
+      - alert: "MemoryUsageHigh"
+        expr: "(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.9"
+        for: "5m"
+        labels:
+          severity: "critical"
+          team: "infrastructure"
+        annotations:
+          summary: "Memory usage is critically high"
+          description: "Memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: "CPUUsageHigh"
+        expr: "(1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))) > 0.8"
+        for: "10m"
+        labels:
+          severity: "warning"
+          team: "infrastructure"
+        annotations:
+          summary: "CPU usage is high"
+          description: "CPU usage is {{ $value | humanizePercentage }}"
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: "15d"
+    retention.size: "50GB"
+    wal-compression: true
+
+# Query configuration
+query:
+  max_concurrency: 20
+  timeout: 2m
+  max_samples: 50000000

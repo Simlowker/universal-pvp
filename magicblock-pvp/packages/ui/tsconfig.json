@@ -1,0 +1,10 @@
+{
+  "extends": "@magicblock-pvp/config/typescript.json",
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "jsx": "react-jsx"
+  }
+}

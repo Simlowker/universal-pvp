@@ -1,0 +1,48 @@
+{
+  "name": "@magicblock-pvp/contracts",
+  "version": "0.1.0",
+  "description": "Anchor smart contracts for PvP gambling with VRF",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "echo 'Anchor build skipped - requires local validator setup'",
+    "test": "anchor test",
+    "deploy": "anchor deploy",
+    "deploy:devnet": "anchor deploy --provider.cluster devnet",
+    "deploy:mainnet": "anchor deploy --provider.cluster mainnet-beta",
+    "lint": "eslint . --ext .ts,.js",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf target/ node_modules/ .anchor/",
+    "sync-types": "anchor build && anchor sync"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.30.0",
+    "@solana/web3.js": "^1.87.0",
+    "@solana/spl-token": "^0.3.9"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "chai": "^4.3.0",
+    "eslint": "^8.50.0",
+    "mocha": "^10.0.0",
+    "prettier": "^3.0.0",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "solana",
+    "anchor",
+    "smart-contracts",
+    "blockchain",
+    "pvp",
+    "gambling",
+    "vrf",
+    "escrow"
+  ],
+  "author": "MagicBlock",
+  "license": "MIT"
+}

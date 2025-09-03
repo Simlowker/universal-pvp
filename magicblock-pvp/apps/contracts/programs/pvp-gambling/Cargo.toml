@@ -1,0 +1,27 @@
+[package]
+name = "pvp-gambling"
+version = "0.1.0"
+description = "PvP gambling smart contract with escrow and VRF"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "pvp_gambling"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.30.0"
+anchor-spl = "0.30.0"
+borsh = "0.10.3"
+solana-program = "1.18.0"
+solana-security-txt = "1.1.0"
+sha2 = "0.10.8"
+ed25519-dalek = "2.0.0"
+rand_core = "0.6.4"
+bytemuck = "1.14.0"

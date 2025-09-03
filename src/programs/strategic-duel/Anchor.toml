@@ -1,0 +1,9 @@
+[programs.devnet]
+strategic_duel = "SDue1111111111111111111111111111111111111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"

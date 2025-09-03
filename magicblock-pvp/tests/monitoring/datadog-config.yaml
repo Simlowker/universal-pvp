@@ -1,0 +1,327 @@
+# Datadog Agent Configuration for MagicBlock PvP Game Monitoring
+
+api_key: ${DD_API_KEY}
+site: ${DD_SITE:-datadoghq.com}
+
+# Hostname configuration
+hostname: ${DD_HOSTNAME:-magicblock-pvp-${NODE_ENV}}
+tags:
+  - env:${NODE_ENV:-development}
+  - service:magicblock-pvp
+  - version:${APP_VERSION:-latest}
+  - blockchain:solana
+  - game_type:pvp
+
+# Log collection
+logs_enabled: true
+logs_config:
+  use_port_443: true
+
+# APM configuration
+apm_config:
+  enabled: true
+  env: ${NODE_ENV:-development}
+  service: magicblock-pvp
+  analyzed_spans:
+    "magicblock-pvp|http.request": 1
+    "magicblock-pvp|game.create": 1
+    "magicblock-pvp|game.join": 1
+    "magicblock-pvp|move.submit": 1
+    "magicblock-pvp|vrf.request": 1
+
+# Database monitoring
+database_monitoring:
+  enabled: true
+
+# Network monitoring
+network_config:
+  enabled: true
+
+# System probes
+system_probe_config:
+  enabled: true
+  debug_port: 0
+
+# Container collection
+container_collection:
+  enabled: true
+
+# Kubernetes integration
+kubernetes_collect_metadata_tags: true
+kubernetes_node_labels_as_tags: true
+kubernetes_pod_labels_as_tags: true
+
+# Custom integrations
+confd_path: /etc/datadog-agent/conf.d
+additional_checksd: /etc/datadog-agent/checks.d
+
+# Check configurations
+init_config:
+  - name: postgres
+    instances:
+      - host: ${POSTGRES_HOST:-localhost}
+        port: ${POSTGRES_PORT:-5432}
+        username: ${POSTGRES_USER}
+        password: ${POSTGRES_PASSWORD}
+        dbname: ${POSTGRES_DB}
+        tags:
+          - db:game_database
+        custom_queries:
+          - metric_prefix: magicblock.db.games
+            query: |
+              SELECT 
+                status,
+                COUNT(*) as count,
+                AVG(EXTRACT(EPOCH FROM (completed_at - created_at))) as avg_duration
+              FROM games 
+              WHERE created_at > NOW() - INTERVAL '1 hour'
+              GROUP BY status
+            columns:
+              - name: status
+                type: tag
+              - name: count
+                type: gauge
+              - name: avg_duration
+                type: gauge
+          - metric_prefix: magicblock.db.moves
+            query: |
+              SELECT 
+                move_type,
+                COUNT(*) as count,
+                AVG(processing_time_ms) as avg_processing_time
+              FROM moves 
+              WHERE created_at > NOW() - INTERVAL '1 hour'
+              GROUP BY move_type
+            columns:
+              - name: move_type
+                type: tag
+              - name: count
+                type: gauge
+              - name: avg_processing_time
+                type: gauge
+
+  - name: redis
+    instances:
+      - host: ${REDIS_HOST:-localhost}
+        port: ${REDIS_PORT:-6379}
+        password: ${REDIS_PASSWORD}
+        tags:
+          - cache:game_cache
+        command_stats: true
+
+  - name: nginx
+    instances:
+      - nginx_status_url: http://localhost/nginx_status
+        tags:
+          - service:web_proxy
+
+# Custom checks
+checks:
+  # Game performance check
+  - name: game_performance
+    interval: 30
+    timeout: 10
+    instances:
+      - url: http://localhost:${PORT:-3000}/health/performance
+        expected_latency_p95: 100  # milliseconds
+        expected_success_rate: 0.999  # 99.9%
+        tags:
+          - check:performance
+
+  # VRF latency check  
+  - name: vrf_latency
+    interval: 60
+    timeout: 30
+    instances:
+      - url: http://localhost:${PORT:-3000}/health/vrf
+        expected_latency_p95: 10  # milliseconds
+        tags:
+          - check:vrf_performance
+
+  # Blockchain connectivity check
+  - name: solana_rpc
+    interval: 30
+    timeout: 15
+    instances:
+      - rpc_url: ${SOLANA_RPC_URL}
+        expected_response_time: 1000  # milliseconds
+        check_balance: true
+        wallet_address: ${MONITORING_WALLET_ADDRESS}
+        tags:
+          - blockchain:solana
+          - check:rpc_connectivity
+
+  # Cost monitoring check
+  - name: transaction_costs
+    interval: 300  # 5 minutes
+    timeout: 30
+    instances:
+      - url: http://localhost:${PORT:-3000}/health/costs
+        max_cost_lamports: 100000  # 100k lamports
+        tags:
+          - check:cost_monitoring
+
+# Log processing rules
+log_processing_rules:
+  # Game events
+  - type: include_at_match
+    name: game_events
+    pattern: '"event_type":"(game_created|game_joined|game_completed|move_submitted)"'
+
+  # Error tracking
+  - type: include_at_match
+    name: errors
+    pattern: '"level":"error"'
+
+  # Performance logs
+  - type: include_at_match
+    name: performance
+    pattern: '"type":"performance"'
+
+  # VRF events
+  - type: include_at_match
+    name: vrf_events
+    pattern: '"event_type":"vrf_"'
+
+  # Exclude health checks
+  - type: exclude_at_match
+    name: health_checks
+    pattern: 'GET /health'
+
+# Advanced log configuration
+logs:
+  - type: file
+    path: /app/logs/application.log
+    service: magicblock-pvp
+    source: nodejs
+    tags:
+      - component:application
+    log_processing_rules:
+      - type: multi_line
+        name: stack_traces
+        pattern: \s+at\s
+
+  - type: file
+    path: /app/logs/game-events.log
+    service: magicblock-pvp-game-events
+    source: game_engine
+    tags:
+      - component:game_engine
+
+  - type: file
+    path: /app/logs/vrf-events.log
+    service: magicblock-pvp-vrf
+    source: vrf_system
+    tags:
+      - component:vrf
+
+  - type: file
+    path: /app/logs/blockchain.log
+    service: magicblock-pvp-blockchain
+    source: blockchain
+    tags:
+      - component:blockchain
+
+  - type: file
+    path: /app/logs/performance.log
+    service: magicblock-pvp-performance
+    source: performance
+    tags:
+      - component:performance
+
+# Service checks
+service_checks:
+  - name: game_service_health
+    url: http://localhost:${PORT:-3000}/health
+    expected_code: 200
+    interval: 30
+    timeout: 10
+    tags:
+      - service:game_api
+
+  - name: database_connectivity
+    command: pg_isready -h ${POSTGRES_HOST:-localhost} -p ${POSTGRES_PORT:-5432}
+    interval: 60
+    timeout: 10
+    tags:
+      - service:database
+
+  - name: redis_connectivity  
+    command: redis-cli -h ${REDIS_HOST:-localhost} -p ${REDIS_PORT:-6379} ping
+    interval: 60
+    timeout: 10
+    tags:
+      - service:cache
+
+# Process collection
+process_config:
+  enabled: true
+
+# Network devices monitoring
+network_devices:
+  autodiscovery:
+    workers: 2
+    discovery_interval: 3600
+
+# Security monitoring
+security_agent:
+  enabled: true
+  
+# Live processes
+process_collection:
+  enabled: true
+
+# Live containers
+container_collection:
+  enabled: true
+
+# JMX monitoring (if using Java components)
+jmx_check_period: 15000
+
+# Histograms configuration
+histogram_aggregates:
+  - method: max
+    type: distribution
+  - method: median
+    type: distribution
+  - method: avg
+    type: distribution
+  - method: count
+    type: distribution
+
+histogram_percentiles:
+  - 0.95
+  - 0.99
+
+# Advanced features
+inventories_configuration_enabled: true
+inventories_checks_configuration_enabled: true
+
+# Cloud provider integration
+cloud_provider_metadata: ["aws", "azure", "gcp"]
+
+# Custom metrics
+dogstatsd_config:
+  dogstatsd_port: 8125
+  bind_host: 0.0.0.0
+  non_local_traffic: true
+  histogram_aggregates:
+    - max
+    - median  
+    - avg
+    - count
+  histogram_percentiles:
+    - 0.95
+    - 0.99
+
+# Compliance monitoring
+compliance_config:
+  enabled: true
+  
+# Runtime security monitoring
+runtime_security_config:
+  enabled: true
+
+# CSPM (Cloud Security Posture Management)
+cspm_config:
+  enabled: true

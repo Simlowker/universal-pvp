@@ -1,0 +1,1385 @@
+openapi: 3.0.0
+info:
+  title: SOL Duel Game API
+  description: |
+    **SOL Duel** is a real-time PvP game built on the Solana blockchain. This API provides endpoints for player authentication, match management, game state synchronization, and blockchain interactions.
+
+    ## Features
+    - 🔐 Wallet-based authentication with signature verification
+    - ⚔️ Real-time multiplayer combat system
+    - 💰 Solana-based wagering and rewards
+    - 🏆 Tournament and leaderboard systems
+    - 🔗 WebSocket real-time updates
+    - 📊 Comprehensive player statistics
+
+    ## Authentication
+    This API uses JWT tokens for authentication. Players authenticate using their Solana wallet signature.
+
+    ## Rate Limiting
+    - 100 requests per 15 minutes per IP address
+    - WebSocket connections limited to 10 per authenticated user
+
+    ## WebSocket Events
+    Real-time game events are handled through WebSocket connections. See the WebSocket documentation for details.
+  version: 1.0.0
+  contact:
+    name: SOL Duel API Support
+    email: support@solduel.game
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.solduel.game
+    description: Production server
+  - url: https://staging-api.solduel.game
+    description: Staging server
+  - url: http://localhost:5000
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Authentication Endpoints
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new player
+      description: Register a new player account with username, email, password and Solana wallet address
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+                - walletAddress
+              properties:
+                username:
+                  type: string
+                  pattern: "^[a-zA-Z0-9]{3,30}$"
+                  description: Alphanumeric username (3-30 characters)
+                  example: "player123"
+                email:
+                  type: string
+                  format: email
+                  description: Valid email address
+                  example: "player@example.com"
+                password:
+                  type: string
+                  minLength: 6
+                  description: Password (minimum 6 characters)
+                  example: "securepass123"
+                walletAddress:
+                  type: string
+                  pattern: "^[A-HJ-NP-Za-km-z1-9]{32,44}$"
+                  description: Valid Solana wallet address (Base58 encoded)
+                  example: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgHU9"
+            examples:
+              newPlayer:
+                summary: New player registration
+                value:
+                  username: "shadowgamer"
+                  email: "shadow@example.com"
+                  password: "mypassword123"
+                  walletAddress: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgHU9"
+      responses:
+        '201':
+          description: Player registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+              example:
+                success: true
+                message: "Player registered successfully"
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                player:
+                  id: "12345"
+                  username: "shadowgamer"
+                  email: "shadow@example.com"
+                  walletAddress: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgHU9"
+                  eloRating: 1200
+                  isVerified: false
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login player
+      description: Authenticate player with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Player's email address
+                  example: "player@example.com"
+                password:
+                  type: string
+                  description: Player's password
+                  example: "securepass123"
+            example:
+              email: "shadow@example.com"
+              password: "mypassword123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/auth/verify-wallet:
+    post:
+      tags:
+        - Authentication
+      summary: Verify wallet signature
+      description: Verify Solana wallet ownership using cryptographic signature
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - walletAddress
+                - signature
+                - message
+              properties:
+                walletAddress:
+                  type: string
+                  description: Solana wallet address
+                  example: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgHU9"
+                signature:
+                  type: string
+                  description: Base58 encoded signature
+                  example: "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi..."
+                message:
+                  type: string
+                  description: Message that was signed
+                  example: "Login to SOL Duel - Timestamp: 1609459200"
+            example:
+              walletAddress: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgHU9"
+              signature: "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi..."
+              message: "Login to SOL Duel - Timestamp: 1609459200"
+      responses:
+        '200':
+          description: Wallet verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletVerifyResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  description: Valid refresh token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  token:
+                    type: string
+                    description: New JWT access token
+                  refreshToken:
+                    type: string
+                    description: New refresh token
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # Game Management Endpoints
+  /api/games:
+    get:
+      tags:
+        - Games
+      summary: Get available games
+      description: Retrieve list of available games with filtering and pagination
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [waiting, active, finished]
+            default: waiting
+          description: Filter games by status
+        - name: gameType
+          in: query
+          schema:
+            type: string
+            enum: [duel, tournament, practice]
+          description: Filter games by type
+        - name: minWager
+          in: query
+          schema:
+            type: number
+            minimum: 0
+          description: Minimum wager amount in SOL
+        - name: maxWager
+          in: query
+          schema:
+            type: number
+            minimum: 0
+          description: Maximum wager amount in SOL
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of games per page
+      responses:
+        '200':
+          description: Games retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      games:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Game'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationInfo'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags:
+        - Games
+      summary: Create new game
+      description: Create a new game with specified configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRequest'
+            examples:
+              duelGame:
+                summary: Standard duel game
+                value:
+                  gameType: "duel"
+                  wagerAmount: 0.1
+                  isPrivate: false
+                  maxPlayers: 2
+                  timeLimit: 300
+                  settings: {}
+              tournamentGame:
+                summary: Tournament game
+                value:
+                  gameType: "tournament"
+                  wagerAmount: 0.5
+                  isPrivate: false
+                  maxPlayers: 8
+                  timeLimit: 600
+                  settings:
+                    eliminationStyle: "single"
+                    bracketsEnabled: true
+      responses:
+        '201':
+          description: Game created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Game created successfully"
+                  data:
+                    type: object
+                    properties:
+                      game:
+                        $ref: '#/components/schemas/Game'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/games/{id}:
+    get:
+      tags:
+        - Games
+      summary: Get specific game
+      description: Retrieve detailed information about a specific game
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Game ID
+          example: "game_12345"
+      responses:
+        '200':
+          description: Game details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      game:
+                        $ref: '#/components/schemas/GameDetails'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/games/{id}/join:
+    post:
+      tags:
+        - Games
+      summary: Join game
+      description: Join an existing game as a player
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Game ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - wagerAmount
+              properties:
+                wagerAmount:
+                  type: number
+                  minimum: 0
+                  description: Wager amount in SOL (must match game requirements)
+                  example: 0.1
+      responses:
+        '200':
+          description: Successfully joined game
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Successfully joined game"
+                  data:
+                    type: object
+                    properties:
+                      game:
+                        $ref: '#/components/schemas/Game'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/games/{id}/move:
+    post:
+      tags:
+        - Games
+      summary: Make game move
+      description: Execute a move or action in an active game
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Game ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameMoveRequest'
+            examples:
+              attack:
+                summary: Attack action
+                value:
+                  moveType: "attack"
+                  data:
+                    target: 1
+                    power: 50
+                    weaponType: "sword"
+                  timestamp: 1609459200000
+              heal:
+                summary: Heal action
+                value:
+                  moveType: "heal"
+                  data:
+                    healAmount: 25
+                    manaCost: 20
+                  timestamp: 1609459200000
+      responses:
+        '200':
+          description: Move processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameMoveResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/games/{id}/surrender:
+    post:
+      tags:
+        - Games
+      summary: Surrender game
+      description: Forfeit the current game
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Game ID
+      responses:
+        '200':
+          description: Game surrendered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Game surrendered successfully"
+                  data:
+                    $ref: '#/components/schemas/GameResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/games/quickmatch:
+    post:
+      tags:
+        - Games
+      summary: Quick match
+      description: Find or create a quick match based on player preferences
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                wagerAmount:
+                  type: number
+                  minimum: 0
+                  default: 0.1
+                  description: Preferred wager amount in SOL
+                gameType:
+                  type: string
+                  enum: [duel, tournament, practice]
+                  default: duel
+                  description: Preferred game type
+            example:
+              wagerAmount: 0.1
+              gameType: "duel"
+      responses:
+        '200':
+          description: Quick match successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Quick match successful"
+                  data:
+                    type: object
+                    properties:
+                      game:
+                        $ref: '#/components/schemas/Game'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/games/player/history:
+    get:
+      tags:
+        - Games
+      summary: Get player game history
+      description: Retrieve authenticated player's game history
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [waiting, active, finished, cancelled]
+      responses:
+        '200':
+          description: Game history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      games:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/GameHistory'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationInfo'
+
+  # Player Management Endpoints
+  /api/players/profile:
+    get:
+      tags:
+        - Players
+      summary: Get player profile
+      description: Retrieve authenticated player's profile information
+      responses:
+        '200':
+          description: Player profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags:
+        - Players
+      summary: Update player profile
+      description: Update authenticated player's profile information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+            example:
+              username: "newusername"
+              bio: "Updated player bio"
+              avatar: "https://example.com/avatar.jpg"
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerProfile'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/players/{id}/stats:
+    get:
+      tags:
+        - Players
+      summary: Get player statistics
+      description: Retrieve detailed statistics for a specific player
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Player ID
+      responses:
+        '200':
+          description: Player statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerStats'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Leaderboard Endpoints
+  /api/leaderboard:
+    get:
+      tags:
+        - Leaderboard
+      summary: Get leaderboard
+      description: Retrieve player rankings and leaderboard information
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [daily, weekly, monthly, all-time]
+            default: all-time
+          description: Time period for leaderboard
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [rating, wins, earnings]
+            default: rating
+          description: Ranking criteria
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Number of entries to return
+      responses:
+        '200':
+          description: Leaderboard retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaderboardEntry'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # Health and Status
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Check API server health status
+      security: []
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "OK"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-12-01T10:00:00.000Z"
+
+  /api/docs:
+    get:
+      tags:
+        - System
+      summary: API documentation
+      description: Get API endpoints overview
+      security: []
+      responses:
+        '200':
+          description: API documentation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: "1.0.0"
+                  endpoints:
+                    type: object
+                    description: Available API endpoints grouped by category
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login or wallet verification
+
+  schemas:
+    # Authentication Schemas
+    AuthSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Login successful"
+        token:
+          type: string
+          description: JWT access token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        player:
+          $ref: '#/components/schemas/PlayerProfile'
+
+    WalletVerifyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Wallet verified successfully"
+        token:
+          type: string
+          description: JWT access token
+        player:
+          type: object
+          properties:
+            id:
+              type: string
+            username:
+              type: string
+            walletAddress:
+              type: string
+            isVerified:
+              type: boolean
+              example: true
+
+    # Player Schemas
+    PlayerProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique player identifier
+          example: "player_12345"
+        username:
+          type: string
+          description: Player username
+          example: "shadowgamer"
+        email:
+          type: string
+          format: email
+          description: Player email
+          example: "shadow@example.com"
+        walletAddress:
+          type: string
+          description: Solana wallet address
+          example: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgHU9"
+        eloRating:
+          type: integer
+          description: Current ELO rating
+          example: 1350
+        isVerified:
+          type: boolean
+          description: Wallet verification status
+          example: true
+        bio:
+          type: string
+          description: Player biography
+        avatar:
+          type: string
+          format: uri
+          description: Avatar image URL
+        stats:
+          $ref: '#/components/schemas/PlayerStats'
+        createdAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: string
+          format: date-time
+
+    PlayerStats:
+      type: object
+      properties:
+        totalMatches:
+          type: integer
+          description: Total games played
+          example: 45
+        wins:
+          type: integer
+          description: Games won
+          example: 28
+        losses:
+          type: integer
+          description: Games lost
+          example: 17
+        winRate:
+          type: number
+          format: float
+          description: Win rate percentage (0-1)
+          example: 0.622
+        averageDamage:
+          type: number
+          format: float
+          description: Average damage per game
+          example: 150.5
+        totalEarnings:
+          type: number
+          format: float
+          description: Total SOL earned
+          example: 2.45
+        currentStreak:
+          type: integer
+          description: Current win/loss streak
+          example: 3
+        longestWinStreak:
+          type: integer
+          description: Longest win streak
+          example: 7
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          pattern: "^[a-zA-Z0-9]{3,30}$"
+          description: New username (optional)
+        bio:
+          type: string
+          maxLength: 500
+          description: Player biography (optional)
+        avatar:
+          type: string
+          format: uri
+          description: Avatar image URL (optional)
+
+    PlayerProfileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/PlayerProfile'
+
+    # Game Schemas
+    CreateGameRequest:
+      type: object
+      required:
+        - gameType
+        - wagerAmount
+      properties:
+        gameType:
+          type: string
+          enum: [duel, tournament, practice]
+          description: Type of game
+          example: "duel"
+        wagerAmount:
+          type: number
+          minimum: 0
+          description: Wager amount in SOL
+          example: 0.1
+        isPrivate:
+          type: boolean
+          default: false
+          description: Whether game is private
+        maxPlayers:
+          type: integer
+          minimum: 2
+          maximum: 8
+          default: 2
+          description: Maximum number of players
+        timeLimit:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 300
+          description: Time limit in seconds
+        settings:
+          type: object
+          description: Additional game settings
+          default: {}
+
+    Game:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique game identifier
+          example: "game_12345"
+        gameType:
+          type: string
+          enum: [duel, tournament, practice]
+          example: "duel"
+        status:
+          type: string
+          enum: [waiting, active, finished, cancelled]
+          example: "waiting"
+        wagerAmount:
+          type: number
+          description: Wager amount in SOL
+          example: 0.1
+        maxPlayers:
+          type: integer
+          example: 2
+        currentPlayers:
+          type: integer
+          description: Number of players currently in game
+          example: 1
+        timeLimit:
+          type: integer
+          description: Time limit in seconds
+          example: 300
+        isPrivate:
+          type: boolean
+          example: false
+        creator:
+          type: object
+          properties:
+            id:
+              type: string
+            username:
+              type: string
+            eloRating:
+              type: integer
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    GameDetails:
+      allOf:
+        - $ref: '#/components/schemas/Game'
+        - type: object
+          properties:
+            players:
+              type: array
+              items:
+                $ref: '#/components/schemas/GamePlayer'
+            currentTurn:
+              type: string
+              description: Current player's turn (player ID)
+            turnTimeRemaining:
+              type: integer
+              description: Seconds remaining in current turn
+            gameState:
+              type: object
+              description: Current game state data
+            rewardPool:
+              type: number
+              description: Total reward pool in SOL
+
+    GamePlayer:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        eloRating:
+          type: integer
+        health:
+          type: integer
+        mana:
+          type: integer
+        isAlive:
+          type: boolean
+        isReady:
+          type: boolean
+        joinedAt:
+          type: string
+          format: date-time
+
+    GameMoveRequest:
+      type: object
+      required:
+        - moveType
+        - data
+        - timestamp
+      properties:
+        moveType:
+          type: string
+          description: Type of move/action
+          example: "attack"
+        data:
+          type: object
+          description: Move-specific data
+          example:
+            target: 1
+            power: 50
+        timestamp:
+          type: integer
+          description: Unix timestamp of move
+          example: 1609459200000
+
+    GameMoveResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Move processed successfully"
+        data:
+          type: object
+          properties:
+            moveResult:
+              type: object
+              description: Results of the move
+            gameState:
+              type: object
+              description: Updated game state
+            nextTurn:
+              type: string
+              description: Next player's turn
+            gameComplete:
+              type: boolean
+              description: Whether game is complete
+
+    GameResult:
+      type: object
+      properties:
+        gameId:
+          type: string
+        winner:
+          type: string
+          description: Winner player ID
+        reason:
+          type: string
+          enum: [victory, surrender, timeout]
+        finalScores:
+          type: object
+          description: Final scores for all players
+        eloChanges:
+          type: object
+          description: ELO rating changes for each player
+        rewards:
+          type: object
+          description: SOL rewards distributed
+        duration:
+          type: integer
+          description: Game duration in seconds
+        endedAt:
+          type: string
+          format: date-time
+
+    GameHistory:
+      type: object
+      properties:
+        id:
+          type: string
+        gameType:
+          type: string
+        status:
+          type: string
+        wagerAmount:
+          type: number
+        result:
+          type: string
+          enum: [won, lost, draw]
+        opponent:
+          type: object
+          properties:
+            id:
+              type: string
+            username:
+              type: string
+        eloChange:
+          type: integer
+          description: ELO change from this game
+        reward:
+          type: number
+          description: SOL reward earned
+        duration:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+
+    # Leaderboard Schemas
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+          description: Current rank
+          example: 1
+        player:
+          type: object
+          properties:
+            id:
+              type: string
+            username:
+              type: string
+            avatar:
+              type: string
+        eloRating:
+          type: integer
+          example: 1450
+        wins:
+          type: integer
+          example: 28
+        totalMatches:
+          type: integer
+          example: 45
+        winRate:
+          type: number
+          format: float
+          example: 0.622
+        totalEarnings:
+          type: number
+          format: float
+          example: 5.67
+
+    # Utility Schemas
+    PaginationInfo:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 20
+        total:
+          type: integer
+          description: Total number of items
+          example: 156
+        pages:
+          type: integer
+          description: Total number of pages
+          example: 8
+
+    # Error Schemas
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: string
+          description: Additional error details (optional)
+        timestamp:
+          type: string
+          format: date-time
+
+  responses:
+    ValidationError:
+      description: Validation error in request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Validation Error"
+            message: "Invalid request data"
+            details: "username must be between 3 and 30 characters"
+
+    UnauthorizedError:
+      description: Authentication required or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Authentication Failed"
+            message: "Valid authentication token required"
+
+    ForbiddenError:
+      description: Access denied - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Access Denied"
+            message: "You do not have permission to perform this action"
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Not Found"
+            message: "The requested resource was not found"
+
+    ConflictError:
+      description: Resource conflict (e.g., duplicate data)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Conflict"
+            message: "A resource with this identifier already exists"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Internal Server Error"
+            message: "An unexpected error occurred"
+
+tags:
+  - name: Authentication
+    description: Player authentication and wallet verification
+  - name: Games
+    description: Game creation, management, and gameplay
+  - name: Players
+    description: Player profiles and statistics
+  - name: Leaderboard
+    description: Player rankings and leaderboards
+  - name: System
+    description: System health and API information

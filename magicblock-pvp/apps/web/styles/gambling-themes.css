@@ -1,0 +1,449 @@
+/* Gambling UI Themes - Dark/Light Mode Support */
+
+/* CSS Custom Properties for Theming */
+:root {
+  /* Light Theme Colors */
+  --gambling-primary: #2563eb;
+  --gambling-primary-hover: #1d4ed8;
+  --gambling-primary-light: #dbeafe;
+  
+  --gambling-success: #059669;
+  --gambling-success-light: #d1fae5;
+  --gambling-danger: #dc2626;
+  --gambling-danger-light: #fee2e2;
+  --gambling-warning: #d97706;
+  --gambling-warning-light: #fef3c7;
+  
+  --gambling-surface: #ffffff;
+  --gambling-surface-hover: #f9fafb;
+  --gambling-border: #e5e7eb;
+  --gambling-border-hover: #d1d5db;
+  
+  --gambling-text-primary: #111827;
+  --gambling-text-secondary: #6b7280;
+  --gambling-text-muted: #9ca3af;
+  
+  --gambling-odds-positive: #059669;
+  --gambling-odds-negative: #dc2626;
+  --gambling-odds-neutral: #6b7280;
+  
+  --gambling-win-bg: #ecfdf5;
+  --gambling-win-border: #a7f3d0;
+  --gambling-win-text: #065f46;
+  
+  --gambling-loss-bg: #fef2f2;
+  --gambling-loss-border: #fecaca;
+  --gambling-loss-text: #991b1b;
+  
+  --gambling-live-indicator: #ef4444;
+  --gambling-live-pulse: #fecaca;
+}
+
+/* Dark Theme Colors */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --gambling-primary: #3b82f6;
+    --gambling-primary-hover: #2563eb;
+    --gambling-primary-light: #1e3a8a;
+    
+    --gambling-success: #10b981;
+    --gambling-success-light: #064e3b;
+    --gambling-danger: #ef4444;
+    --gambling-danger-light: #7f1d1d;
+    --gambling-warning: #f59e0b;
+    --gambling-warning-light: #78350f;
+    
+    --gambling-surface: #1f2937;
+    --gambling-surface-hover: #374151;
+    --gambling-border: #4b5563;
+    --gambling-border-hover: #6b7280;
+    
+    --gambling-text-primary: #f9fafb;
+    --gambling-text-secondary: #d1d5db;
+    --gambling-text-muted: #9ca3af;
+    
+    --gambling-odds-positive: #10b981;
+    --gambling-odds-negative: #ef4444;
+    --gambling-odds-neutral: #9ca3af;
+    
+    --gambling-win-bg: #064e3b;
+    --gambling-win-border: #10b981;
+    --gambling-win-text: #a7f3d0;
+    
+    --gambling-loss-bg: #7f1d1d;
+    --gambling-loss-border: #ef4444;
+    --gambling-loss-text: #fecaca;
+    
+    --gambling-live-indicator: #ef4444;
+    --gambling-live-pulse: #7f1d1d;
+  }
+}
+
+/* Force Dark Theme Class */
+.dark {
+  --gambling-primary: #3b82f6;
+  --gambling-primary-hover: #2563eb;
+  --gambling-primary-light: #1e3a8a;
+  
+  --gambling-success: #10b981;
+  --gambling-success-light: #064e3b;
+  --gambling-danger: #ef4444;
+  --gambling-danger-light: #7f1d1d;
+  --gambling-warning: #f59e0b;
+  --gambling-warning-light: #78350f;
+  
+  --gambling-surface: #1f2937;
+  --gambling-surface-hover: #374151;
+  --gambling-border: #4b5563;
+  --gambling-border-hover: #6b7280;
+  
+  --gambling-text-primary: #f9fafb;
+  --gambling-text-secondary: #d1d5db;
+  --gambling-text-muted: #9ca3af;
+  
+  --gambling-odds-positive: #10b981;
+  --gambling-odds-negative: #ef4444;
+  --gambling-odds-neutral: #9ca3af;
+  
+  --gambling-win-bg: #064e3b;
+  --gambling-win-border: #10b981;
+  --gambling-win-text: #a7f3d0;
+  
+  --gambling-loss-bg: #7f1d1d;
+  --gambling-loss-border: #ef4444;
+  --gambling-loss-text: #fecaca;
+  
+  --gambling-live-indicator: #ef4444;
+  --gambling-live-pulse: #7f1d1d;
+}
+
+/* Component-Specific Theme Classes */
+
+/* Bet Slip Theming */
+.bet-slip {
+  background-color: var(--gambling-surface);
+  border-color: var(--gambling-border);
+  color: var(--gambling-text-primary);
+}
+
+.bet-slip-header {
+  background: linear-gradient(135deg, var(--gambling-primary), var(--gambling-primary-hover));
+}
+
+.bet-slip-selection {
+  background-color: var(--gambling-surface);
+  border-color: var(--gambling-border);
+}
+
+.bet-slip-selection:hover {
+  background-color: var(--gambling-surface-hover);
+  border-color: var(--gambling-border-hover);
+}
+
+.bet-slip-total {
+  background-color: var(--gambling-surface-hover);
+}
+
+/* Odds Display Theming */
+.odds-button {
+  background-color: var(--gambling-surface);
+  border-color: var(--gambling-border);
+  color: var(--gambling-text-primary);
+  transition: all 0.2s ease;
+}
+
+.odds-button:hover {
+  background-color: var(--gambling-surface-hover);
+  border-color: var(--gambling-primary);
+  transform: translateY(-1px);
+}
+
+.odds-button.selected {
+  background-color: var(--gambling-primary-light);
+  border-color: var(--gambling-primary);
+  color: var(--gambling-primary);
+}
+
+.odds-movement-up {
+  color: var(--gambling-odds-positive);
+}
+
+.odds-movement-down {
+  color: var(--gambling-odds-negative);
+}
+
+.odds-probability {
+  color: var(--gambling-text-muted);
+}
+
+/* Tournament Bracket Theming */
+.tournament-bracket {
+  background-color: var(--gambling-surface);
+}
+
+.bracket-match {
+  background-color: var(--gambling-surface);
+  border-color: var(--gambling-border);
+}
+
+.bracket-match.live {
+  border-color: var(--gambling-live-indicator);
+  background-color: var(--gambling-live-pulse);
+}
+
+.bracket-match.completed {
+  border-color: var(--gambling-success);
+  background-color: var(--gambling-success-light);
+}
+
+.bracket-player.winner {
+  background-color: var(--gambling-win-bg);
+  color: var(--gambling-win-text);
+}
+
+/* Responsible Gambling Theming */
+.responsible-gambling-limit {
+  background-color: var(--gambling-surface);
+  border-color: var(--gambling-border);
+}
+
+.limit-progress-bar {
+  background-color: var(--gambling-border);
+}
+
+.limit-progress-fill.safe {
+  background-color: var(--gambling-success);
+}
+
+.limit-progress-fill.warning {
+  background-color: var(--gambling-warning);
+}
+
+.limit-progress-fill.danger {
+  background-color: var(--gambling-danger);
+}
+
+.reality-check-overlay {
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+/* Payout Display Theming */
+.payout-win {
+  background: linear-gradient(135deg, var(--gambling-win-bg), var(--gambling-success-light));
+  border-color: var(--gambling-win-border);
+}
+
+.payout-loss {
+  background: linear-gradient(135deg, var(--gambling-loss-bg), var(--gambling-danger-light));
+  border-color: var(--gambling-loss-border);
+}
+
+.payout-amount.win {
+  color: var(--gambling-odds-positive);
+}
+
+.payout-amount.loss {
+  color: var(--gambling-odds-negative);
+}
+
+.coin-animation {
+  filter: drop-shadow(0 0 10px var(--gambling-warning));
+}
+
+/* Leaderboard Theming */
+.leaderboard-podium {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+}
+
+.dark .leaderboard-podium {
+  background: linear-gradient(135deg, #78350f, #92400e);
+}
+
+.leaderboard-rank-1 {
+  color: #d97706;
+}
+
+.leaderboard-rank-2 {
+  color: #6b7280;
+}
+
+.leaderboard-rank-3 {
+  color: #92400e;
+}
+
+.leaderboard-current-user {
+  background-color: var(--gambling-primary-light);
+  border-left: 4px solid var(--gambling-primary);
+}
+
+.recent-win-card {
+  background: linear-gradient(135deg, var(--gambling-win-bg), var(--gambling-success-light));
+  border-color: var(--gambling-win-border);
+}
+
+/* Live Betting Theming */
+.live-betting-header {
+  background: linear-gradient(135deg, var(--gambling-live-indicator), #dc2626);
+}
+
+.live-indicator {
+  background-color: var(--gambling-live-indicator);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.live-odds-button {
+  background-color: var(--gambling-surface);
+  border-color: var(--gambling-border);
+  transition: all 0.2s ease;
+}
+
+.live-odds-button:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.live-odds-button.player1 {
+  border-color: #3b82f6;
+}
+
+.live-odds-button.player1:hover {
+  background-color: #eff6ff;
+  border-color: #2563eb;
+}
+
+.dark .live-odds-button.player1:hover {
+  background-color: #1e3a8a;
+}
+
+.live-odds-button.player2 {
+  border-color: #ef4444;
+}
+
+.live-odds-button.player2:hover {
+  background-color: #fef2f2;
+  border-color: #dc2626;
+}
+
+.dark .live-odds-button.player2:hover {
+  background-color: #7f1d1d;
+}
+
+.odds-chart-line.player1 {
+  stroke: #3b82f6;
+}
+
+.odds-chart-line.player2 {
+  stroke: #ef4444;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--gambling-primary);
+  }
+  50% {
+    box-shadow: 0 0 20px 5px rgba(37, 99, 235, 0.3);
+  }
+}
+
+@keyframes coin-fall {
+  from {
+    transform: translateY(-100px) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes odds-change {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+    background-color: var(--gambling-warning-light);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Utility Classes */
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+.animate-coin-fall {
+  animation: coin-fall 3s ease-in forwards;
+}
+
+.animate-odds-change {
+  animation: odds-change 0.5s ease-out;
+}
+
+/* Accessibility Enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-glow,
+  .animate-coin-fall,
+  .animate-odds-change,
+  .live-indicator {
+    animation: none;
+  }
+  
+  .odds-button:hover,
+  .live-odds-button:hover {
+    transform: none;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  :root {
+    --gambling-border: #000000;
+    --gambling-text-primary: #000000;
+    --gambling-surface: #ffffff;
+  }
+  
+  .dark {
+    --gambling-border: #ffffff;
+    --gambling-text-primary: #ffffff;
+    --gambling-surface: #000000;
+  }
+}
+
+/* Focus Styles for Accessibility */
+.odds-button:focus,
+.live-odds-button:focus,
+.bet-slip button:focus,
+button:focus {
+  outline: 2px solid var(--gambling-primary);
+  outline-offset: 2px;
+}
+
+/* Print Styles */
+@media print {
+  .animate-pulse-glow,
+  .animate-coin-fall,
+  .live-indicator {
+    animation: none;
+  }
+  
+  .bet-slip,
+  .odds-display,
+  .leaderboard {
+    background: white !important;
+    color: black !important;
+  }
+}

@@ -1,0 +1,192 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+  RUST_VERSION: '1.75'
+  CACHE_VERSION: v1
+
+jobs:
+  test-frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16, 18, 20]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run linting
+        run: npm run lint
+        
+      - name: Run type checking
+        run: npm run typecheck
+        
+      - name: Run unit tests
+        run: npm run test:unit -- --coverage
+        
+      - name: Run integration tests
+        run: npm run test:integration
+        
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage/lcov.info
+
+  test-solana:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          override: true
+          components: rustfmt, clippy
+          
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ env.CACHE_VERSION }}-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v1.17.0/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          
+      - name: Setup Anchor
+        run: |
+          npm install -g @coral-xyz/anchor-cli
+          anchor --version
+          
+      - name: Lint Rust code
+        run: cargo clippy -- -D warnings
+        
+      - name: Format check
+        run: cargo fmt -- --check
+        
+      - name: Build Solana programs
+        run: anchor build
+        
+      - name: Test Solana programs
+        run: anchor test --skip-local-validator
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+          
+      - name: Audit npm packages
+        run: npm audit --audit-level moderate
+        
+      - name: Cargo audit
+        run: |
+          cargo install cargo-audit
+          cargo audit
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test-frontend, test-solana, security-scan]
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          override: true
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Generate version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            VERSION=$(date +%Y.%m.%d)-${{ github.run_number }}
+          else
+            VERSION=$(date +%Y.%m.%d)-${{ github.run_number }}-$(echo ${{ github.ref_name }} | sed 's/[^a-zA-Z0-9]/-/g')
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          
+      - name: Build frontend
+        run: |
+          npm run build
+          echo "${{ env.VERSION }}" > dist/version.txt
+          
+      - name: Build Solana programs
+        run: anchor build
+        
+      - name: Build Docker images
+        run: |
+          docker build -t sol-duel-frontend:${{ env.VERSION }} -f deployment/docker/Dockerfile.frontend .
+          docker build -t sol-duel-api:${{ env.VERSION }} -f deployment/docker/Dockerfile.api .
+          
+      - name: Save Docker images
+        run: |
+          docker save sol-duel-frontend:${{ env.VERSION }} | gzip > frontend-${{ env.VERSION }}.tar.gz
+          docker save sol-duel-api:${{ env.VERSION }} | gzip > api-${{ env.VERSION }}.tar.gz
+          
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts-${{ env.VERSION }}
+          path: |
+            dist/
+            target/deploy/
+            *.tar.gz
+          retention-days: 30

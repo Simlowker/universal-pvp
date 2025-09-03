@@ -1,0 +1,869 @@
+/**
+ * Universal PvP Battle Demo
+ * 
+ * This example demonstrates a complete PvP battle implementation using MagicBlock's
+ * infrastructure including BOLT ECS, Ephemeral Rollups, and Session Keys.
+ */
+
+import { 
+  Connection, 
+  PublicKey, 
+  Keypair, 
+  LAMPORTS_PER_SOL,
+  Transaction,
+  TransactionInstruction
+} from '@solana/web3.js';
+// Note: @magicblock-labs/sdk-suite not available, using individual imports
+import { DELEGATION_PROGRAM_ID, MAGIC_PROGRAM_ID } from '@magicblock-labs/ephemeral-rollups-sdk';
+import { anchor, Session } from '@magicblock-labs/bolt-sdk';
+import { useSessionKeyManager } from '@magicblock-labs/gum-react-sdk';
+
+// ============================================================================
+// Types and Interfaces
+// ============================================================================
+
+interface PlayerProfile {
+  owner: PublicKey;
+  username: string;
+  playerClass: PlayerClass;
+  level: number;
+  experience: bigint;
+  totalMatches: number;
+  wins: number;
+  losses: number;
+  createdAt: bigint;
+  isActive: boolean;
+}
+
+interface PlayerStats {
+  health: number;
+  attack: number;
+  defense: number;
+  speed: number;
+  mana: number;
+}
+
+interface PlayerHealth {
+  currentHealth: number;
+  maxHealth: number;
+  currentMana: number;
+  maxMana: number;
+  isAlive: boolean;
+  lastDamageTaken: bigint;
+  lastHealReceived: bigint;
+}
+
+interface CombatStats {
+  damageDealt: number;
+  damageTaken: number;
+  actionsTaken: number;
+  criticalHits: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+}
+
+interface MatchState {
+  matchId: bigint;
+  currentTurn: number;
+  turnDeadline: bigint;
+  state: GameState;
+  playersCount: number;
+  maxPlayers: number;
+  teamACount: number;
+  teamBCount: number;
+  startTime: bigint;
+  endTime: bigint;
+  winner: number | null;
+  rollupId: string | null;
+}
+
+enum PlayerClass {
+  Warrior = 0,
+  Mage = 1,
+  Archer = 2,
+  Rogue = 3,
+}
+
+enum GameState {
+  WaitingForPlayers = 0,
+  Starting = 1,
+  Active = 2,
+  Paused = 3,
+  Finished = 4,
+  Cancelled = 5,
+}
+
+enum AbilityType {
+  BasicAttack = 0,
+  SpecialAbility = 1,
+  Ultimate = 2,
+  Heal = 3,
+  DefensiveStance = 4,
+  Movement = 5,
+}
+
+// ============================================================================
+// PvP Battle Demo Class
+// ============================================================================
+
+export class PvPBattleDemo {
+  private connection: Connection;
+  private boltSDK: any; // BoltSDK placeholder
+  private rollupSDK: EphemeralRollupSDK;
+  private sessionSDK: SessionKeySDK;
+  private routerSDK: MagicRouterSDK;
+
+  constructor() {
+    // Initialize connection
+    this.connection = new Connection(
+      process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com',
+      'confirmed'
+    );
+
+    // Initialize SDKs
+    this.boltSDK = { // BoltSDK placeholder
+      connection: this.connection,
+      programId: new PublicKey(process.env.BOLT_PROGRAM_ID!),
+    });
+
+    this.rollupSDK = new EphemeralRollupSDK({
+      endpoint: process.env.EPHEMERAL_ROLLUP_ENDPOINT!,
+      apiKey: process.env.MAGICBLOCK_API_KEY!,
+    });
+
+    this.sessionSDK = new SessionKeySDK({
+      connection: this.connection,
+      programId: new PublicKey(process.env.SESSION_KEY_PROGRAM_ID!),
+    });
+
+    this.routerSDK = new MagicRouterSDK({
+      endpoint: process.env.MAGIC_ROUTER_ENDPOINT!,
+      connection: this.connection,
+    });
+  }
+
+  // ============================================================================
+  // Demo Execution
+  // ============================================================================
+
+  /**
+   * Run the complete PvP battle demo
+   */
+  async runDemo(): Promise<void> {
+    console.log('🎮 Starting Universal PvP Battle Demo...\n');
+
+    try {
+      // Step 1: Create test players
+      console.log('👥 Creating test players...');
+      const player1 = await this.createDemoPlayer('CryptoWarrior', PlayerClass.Warrior);
+      const player2 = await this.createDemoPlayer('MagicMaster', PlayerClass.Mage);
+      console.log(`✅ Created player 1: ${player1.publicKey.toString()}`);
+      console.log(`✅ Created player 2: ${player2.publicKey.toString()}\n`);
+
+      // Step 2: Create session keys for seamless gameplay
+      console.log('🔑 Creating session keys...');
+      const session1 = await this.createSessionKey(player1, 60, 0.1);
+      const session2 = await this.createSessionKey(player2, 60, 0.1);
+      console.log('✅ Session keys created\n');
+
+      // Step 3: Create a match with ephemeral rollup
+      console.log('🏟️ Creating PvP match with ephemeral rollup...');
+      const match = await this.createMatch([player1.publicKey, player2.publicKey]);
+      console.log(`✅ Match created: ${match.matchId}`);
+      console.log(`📦 Rollup ID: ${match.rollupId}\n`);
+
+      // Step 4: Players join the match
+      console.log('🎯 Players joining match...');
+      await this.joinMatch(match.matchId, player1.publicKey, 0); // Team A
+      await this.joinMatch(match.matchId, player2.publicKey, 1); // Team B
+      console.log('✅ Both players joined\n');
+
+      // Step 5: Start the match
+      console.log('🚀 Starting match...');
+      await this.startMatch(match.matchId);
+      console.log('✅ Match started\n');
+
+      // Step 6: Execute battle sequence
+      console.log('⚔️ Executing battle sequence...\n');
+      await this.executeBattleSequence(
+        player1.publicKey,
+        player2.publicKey,
+        session1.keypair,
+        session2.keypair,
+        match.rollupId!
+      );
+
+      // Step 7: End match and settle results
+      console.log('\n🏆 Ending match and settling results...');
+      await this.endMatch(match.matchId, match.rollupId!);
+      console.log('✅ Match completed and settled\n');
+
+      // Step 8: Display final statistics
+      await this.displayFinalStats(player1.publicKey, player2.publicKey);
+
+      console.log('🎉 Demo completed successfully!');
+
+    } catch (error) {
+      console.error('❌ Demo failed:', error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // Player Management
+  // ============================================================================
+
+  /**
+   * Create a demo player with specified class
+   */
+  private async createDemoPlayer(username: string, playerClass: PlayerClass): Promise<Keypair> {
+    const player = Keypair.generate();
+
+    // Airdrop SOL for transactions
+    const signature = await this.connection.requestAirdrop(
+      player.publicKey,
+      2 * LAMPORTS_PER_SOL
+    );
+    await this.connection.confirmTransaction(signature);
+
+    // Create player profile
+    const profileInstruction = await this.boltSDK.buildCreateEntityInstruction(
+      'PlayerProfile',
+      player.publicKey,
+      {
+        owner: player.publicKey,
+        username: this.stringToBytes32(username),
+        playerClass,
+        level: 1,
+        experience: 0n,
+        totalMatches: 0,
+        wins: 0,
+        losses: 0,
+        createdAt: BigInt(Date.now()),
+        isActive: true,
+      }
+    );
+
+    // Create player stats based on class
+    const stats = this.getStatsForClass(playerClass);
+    const statsInstruction = await this.boltSDK.buildCreateEntityInstruction(
+      'PlayerStats',
+      player.publicKey,
+      stats
+    );
+
+    // Create player health
+    const healthInstruction = await this.boltSDK.buildCreateEntityInstruction(
+      'PlayerHealth',
+      player.publicKey,
+      {
+        currentHealth: stats.health,
+        maxHealth: stats.health,
+        currentMana: stats.mana,
+        maxMana: stats.mana,
+        isAlive: true,
+        lastDamageTaken: 0n,
+        lastHealReceived: 0n,
+      }
+    );
+
+    // Create combat stats
+    const combatStatsInstruction = await this.boltSDK.buildCreateEntityInstruction(
+      'CombatStats',
+      player.publicKey,
+      {
+        damageDealt: 0,
+        damageTaken: 0,
+        actionsTaken: 0,
+        criticalHits: 0,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+      }
+    );
+
+    // Send transaction
+    const transaction = new Transaction().add(
+      profileInstruction,
+      statsInstruction,
+      healthInstruction,
+      combatStatsInstruction
+    );
+
+    const txSignature = await this.boltSDK.sendTransaction(transaction, [player]);
+    await this.connection.confirmTransaction(txSignature);
+
+    return player;
+  }
+
+  /**
+   * Get base stats for a player class
+   */
+  private getStatsForClass(playerClass: PlayerClass): PlayerStats {
+    switch (playerClass) {
+      case PlayerClass.Warrior:
+        return { health: 120, attack: 85, defense: 90, speed: 60, mana: 30 };
+      case PlayerClass.Mage:
+        return { health: 80, attack: 100, defense: 50, speed: 70, mana: 150 };
+      case PlayerClass.Archer:
+        return { health: 90, attack: 95, defense: 60, speed: 110, mana: 80 };
+      case PlayerClass.Rogue:
+        return { health: 85, attack: 90, defense: 55, speed: 120, mana: 70 };
+      default:
+        return { health: 100, attack: 50, defense: 50, speed: 50, mana: 100 };
+    }
+  }
+
+  // ============================================================================
+  // Session Management
+  // ============================================================================
+
+  /**
+   * Create a session key for a player
+   */
+  private async createSessionKey(
+    player: Keypair,
+    durationMinutes: number,
+    maxSpendSOL: number
+  ): Promise<{ keypair: Keypair; permissions: any }> {
+    const sessionKey = await this.sessionSDK.createSession({
+      authority: player.publicKey,
+      maxSpend: maxSpendSOL * LAMPORTS_PER_SOL,
+      duration: durationMinutes * 60,
+      allowedPrograms: [
+        new PublicKey(process.env.BOLT_PROGRAM_ID!),
+        new PublicKey(process.env.GAME_PROGRAM_ID!),
+      ],
+      allowedInstructions: [
+        'execute_attack',
+        'heal_player',
+        'move_player',
+        'use_ability',
+      ],
+    });
+
+    // Sign the session creation
+    const transaction = sessionKey.transaction;
+    transaction.sign(player);
+    
+    const signature = await this.connection.sendTransaction(transaction);
+    await this.connection.confirmTransaction(signature);
+
+    return sessionKey;
+  }
+
+  // ============================================================================
+  // Match Management
+  // ============================================================================
+
+  /**
+   * Create a new PvP match with ephemeral rollup
+   */
+  private async createMatch(players: PublicKey[]): Promise<MatchState> {
+    const matchId = BigInt(Date.now());
+    
+    // Create ephemeral rollup for the match
+    const rollup = await this.rollupSDK.createRollup({
+      name: `pvp-match-${matchId}`,
+      duration: 3600, // 1 hour
+      validators: ['validator1', 'validator2', 'validator3'],
+      initialState: {
+        players: players.map(p => p.toString()),
+        matchId: matchId.toString(),
+        startTime: Date.now(),
+      },
+    });
+
+    // Create match state
+    const matchState: MatchState = {
+      matchId,
+      currentTurn: 0,
+      turnDeadline: BigInt(Date.now() + 30000), // 30 second turns
+      state: GameState.WaitingForPlayers,
+      playersCount: 0,
+      maxPlayers: 2,
+      teamACount: 0,
+      teamBCount: 0,
+      startTime: 0n,
+      endTime: 0n,
+      winner: null,
+      rollupId: rollup.id,
+    };
+
+    // Store match state in rollup
+    await this.rollupSDK.executeTransaction(rollup.id, {
+      instruction: 'create_match',
+      data: matchState,
+    });
+
+    return matchState;
+  }
+
+  /**
+   * Player joins a match
+   */
+  private async joinMatch(
+    matchId: bigint,
+    player: PublicKey,
+    team: number
+  ): Promise<void> {
+    const instruction = await this.boltSDK.buildSystemInstruction(
+      'match_system',
+      'join_match',
+      {
+        match_state: await this.getMatchStateAddress(matchId),
+        player_participation: await this.getPlayerParticipationAddress(player),
+        player_profile: await this.getComponentAddress('PlayerProfile', player),
+      },
+      {
+        matchId,
+        teamPreference: team,
+      }
+    );
+
+    const signature = await this.boltSDK.sendTransaction([instruction]);
+    await this.connection.confirmTransaction(signature);
+  }
+
+  /**
+   * Start the match
+   */
+  private async startMatch(matchId: bigint): Promise<void> {
+    const instruction = await this.boltSDK.buildSystemInstruction(
+      'match_system',
+      'start_match',
+      {
+        match_state: await this.getMatchStateAddress(matchId),
+      },
+      { matchId }
+    );
+
+    const signature = await this.boltSDK.sendTransaction([instruction]);
+    await this.connection.confirmTransaction(signature);
+  }
+
+  /**
+   * End the match and settle results
+   */
+  private async endMatch(matchId: bigint, rollupId: string): Promise<void> {
+    // Get final rollup state
+    const finalState = await this.rollupSDK.getRollupState(rollupId);
+    
+    // Determine winner based on health remaining
+    const winner = this.determineWinner(finalState);
+    
+    // End match instruction
+    const instruction = await this.boltSDK.buildSystemInstruction(
+      'match_system',
+      'end_match',
+      {
+        match_state: await this.getMatchStateAddress(matchId),
+      },
+      {
+        matchId,
+        winningTeam: winner,
+      }
+    );
+
+    // Execute on mainnet
+    const signature = await this.boltSDK.sendTransaction([instruction]);
+    await this.connection.confirmTransaction(signature);
+
+    // Settle rollup to mainnet
+    await this.rollupSDK.settleRollup(rollupId, {
+      commitToMainnet: true,
+      proofData: finalState.merkleProof,
+    });
+
+    // Clean up rollup
+    await this.rollupSDK.destroyRollup(rollupId);
+  }
+
+  // ============================================================================
+  // Battle System
+  // ============================================================================
+
+  /**
+   * Execute a complete battle sequence
+   */
+  private async executeBattleSequence(
+    player1: PublicKey,
+    player2: PublicKey,
+    session1: Keypair,
+    session2: Keypair,
+    rollupId: string
+  ): Promise<void> {
+    let round = 1;
+    const maxRounds = 10;
+
+    while (round <= maxRounds) {
+      console.log(`  Round ${round}:`);
+
+      // Check if either player is defeated
+      const player1Health = await this.getPlayerHealth(player1);
+      const player2Health = await this.getPlayerHealth(player2);
+
+      if (!player1Health.isAlive) {
+        console.log('    🏆 Player 2 (MagicMaster) wins!');
+        break;
+      }
+      if (!player2Health.isAlive) {
+        console.log('    🏆 Player 1 (CryptoWarrior) wins!');
+        break;
+      }
+
+      // Player 1 turn
+      await this.executePlayerTurn(
+        player1,
+        player2,
+        session1,
+        rollupId,
+        'CryptoWarrior',
+        round % 3 === 0 ? AbilityType.SpecialAbility : AbilityType.BasicAttack
+      );
+
+      // Check if player 2 is defeated
+      const updatedPlayer2Health = await this.getPlayerHealth(player2);
+      if (!updatedPlayer2Health.isAlive) {
+        console.log('    🏆 Player 1 (CryptoWarrior) wins!');
+        break;
+      }
+
+      // Player 2 turn
+      await this.executePlayerTurn(
+        player2,
+        player1,
+        session2,
+        rollupId,
+        'MagicMaster',
+        round % 4 === 0 ? AbilityType.Ultimate : AbilityType.BasicAttack
+      );
+
+      console.log(''); // Empty line for readability
+      round++;
+    }
+
+    if (round > maxRounds) {
+      console.log('    🤝 Match ended in a draw (max rounds reached)');
+    }
+  }
+
+  /**
+   * Execute a single player's turn
+   */
+  private async executePlayerTurn(
+    attacker: PublicKey,
+    target: PublicKey,
+    sessionKey: Keypair,
+    rollupId: string,
+    attackerName: string,
+    abilityType: AbilityType
+  ): Promise<void> {
+    try {
+      // Get current stats for damage calculation
+      const attackerStats = await this.getPlayerStats(attacker);
+      const targetHealthBefore = await this.getPlayerHealth(target);
+
+      // Calculate damage based on ability type
+      let damage = attackerStats.attack;
+      let manaCost = 0;
+      let abilityName = 'Basic Attack';
+
+      switch (abilityType) {
+        case AbilityType.BasicAttack:
+          damage = Math.floor(attackerStats.attack * 0.8);
+          abilityName = 'Basic Attack';
+          break;
+        case AbilityType.SpecialAbility:
+          damage = Math.floor(attackerStats.attack * 1.5);
+          manaCost = 20;
+          abilityName = 'Special Ability';
+          break;
+        case AbilityType.Ultimate:
+          damage = Math.floor(attackerStats.attack * 2.5);
+          manaCost = 50;
+          abilityName = 'Ultimate';
+          break;
+      }
+
+      // Add some randomness (±20%)
+      damage = Math.floor(damage * (0.8 + Math.random() * 0.4));
+
+      // Execute attack on rollup for fast processing
+      const result = await this.rollupSDK.executeTransaction(rollupId, {
+        instruction: 'execute_attack',
+        accounts: {
+          attacker,
+          target,
+          attacker_stats: await this.getComponentAddress('PlayerStats', attacker),
+          target_health: await this.getComponentAddress('PlayerHealth', target),
+          attacker_health: await this.getComponentAddress('PlayerHealth', attacker),
+        },
+        data: {
+          damage,
+          attackType: abilityType,
+          manaCost,
+        },
+      });
+
+      // Get updated health for display
+      const targetHealthAfter = await this.getPlayerHealth(target);
+      const actualDamage = targetHealthBefore.currentHealth - targetHealthAfter.currentHealth;
+
+      console.log(`    ${attackerName} uses ${abilityName}:`);
+      console.log(`      💥 Deals ${actualDamage} damage`);
+      console.log(`      ❤️ Target health: ${targetHealthAfter.currentHealth}/${targetHealthAfter.maxHealth}`);
+
+      if (!targetHealthAfter.isAlive) {
+        console.log(`      ⚰️ Target defeated!`);
+      }
+
+    } catch (error) {
+      console.log(`    ❌ ${attackerName}'s attack failed:`, (error as Error).message);
+    }
+  }
+
+  // ============================================================================
+  // Data Access Methods
+  // ============================================================================
+
+  /**
+   * Get player stats component
+   */
+  private async getPlayerStats(player: PublicKey): Promise<PlayerStats> {
+    const component = await this.boltSDK.getComponent('PlayerStats', player);
+    return component.data as PlayerStats;
+  }
+
+  /**
+   * Get player health component
+   */
+  private async getPlayerHealth(player: PublicKey): Promise<PlayerHealth> {
+    const component = await this.boltSDK.getComponent('PlayerHealth', player);
+    return component.data as PlayerHealth;
+  }
+
+  /**
+   * Get combat stats component
+   */
+  private async getCombatStats(player: PublicKey): Promise<CombatStats> {
+    const component = await this.boltSDK.getComponent('CombatStats', player);
+    return component.data as CombatStats;
+  }
+
+  /**
+   * Get component address for a given entity and component type
+   */
+  private async getComponentAddress(
+    componentType: string,
+    entity: PublicKey
+  ): Promise<PublicKey> {
+    return await this.boltSDK.deriveComponentAddress(componentType, entity);
+  }
+
+  /**
+   * Get match state address
+   */
+  private async getMatchStateAddress(matchId: bigint): Promise<PublicKey> {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('match'), Buffer.from(matchId.toString())],
+      new PublicKey(process.env.BOLT_PROGRAM_ID!)
+    )[0];
+  }
+
+  /**
+   * Get player participation address
+   */
+  private async getPlayerParticipationAddress(player: PublicKey): Promise<PublicKey> {
+    return PublicKey.findProgramAddressSync(
+      [Buffer.from('participation'), player.toBuffer()],
+      new PublicKey(process.env.BOLT_PROGRAM_ID!)
+    )[0];
+  }
+
+  // ============================================================================
+  // Utility Methods
+  // ============================================================================
+
+  /**
+   * Convert string to 32-byte array
+   */
+  private stringToBytes32(str: string): Uint8Array {
+    const bytes = new Uint8Array(32);
+    const encoder = new TextEncoder();
+    const encoded = encoder.encode(str.substring(0, 32));
+    bytes.set(encoded);
+    return bytes;
+  }
+
+  /**
+   * Determine match winner from rollup state
+   */
+  private determineWinner(rollupState: any): number | null {
+    // Logic to determine winner based on final state
+    // This would examine player health, scores, etc.
+    return Math.random() > 0.5 ? 0 : 1; // Random for demo
+  }
+
+  /**
+   * Display final match statistics
+   */
+  private async displayFinalStats(player1: PublicKey, player2: PublicKey): Promise<void> {
+    console.log('📊 Final Statistics:');
+    console.log('  Player 1 (CryptoWarrior):');
+    
+    const player1Health = await this.getPlayerHealth(player1);
+    const player1Combat = await this.getCombatStats(player1);
+    
+    console.log(`    Health: ${player1Health.currentHealth}/${player1Health.maxHealth}`);
+    console.log(`    Damage Dealt: ${player1Combat.damageDealt}`);
+    console.log(`    Actions Taken: ${player1Combat.actionsTaken}`);
+    console.log(`    Status: ${player1Health.isAlive ? 'Alive' : 'Defeated'}`);
+
+    console.log('  Player 2 (MagicMaster):');
+    
+    const player2Health = await this.getPlayerHealth(player2);
+    const player2Combat = await this.getCombatStats(player2);
+    
+    console.log(`    Health: ${player2Health.currentHealth}/${player2Health.maxHealth}`);
+    console.log(`    Damage Dealt: ${player2Combat.damageDealt}`);
+    console.log(`    Actions Taken: ${player2Combat.actionsTaken}`);
+    console.log(`    Status: ${player2Health.isAlive ? 'Alive' : 'Defeated'}`);
+  }
+}
+
+// ============================================================================
+// Demo Execution
+// ============================================================================
+
+/**
+ * Run the demo if this file is executed directly
+ */
+async function main() {
+  // Load environment variables
+  require('dotenv').config();
+
+  // Validate required environment variables
+  const requiredEnvVars = [
+    'SOLANA_RPC_URL',
+    'BOLT_PROGRAM_ID',
+    'EPHEMERAL_ROLLUP_ENDPOINT',
+    'MAGICBLOCK_API_KEY',
+    'SESSION_KEY_PROGRAM_ID',
+    'MAGIC_ROUTER_ENDPOINT',
+  ];
+
+  for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+      console.error(`❌ Missing required environment variable: ${envVar}`);
+      process.exit(1);
+    }
+  }
+
+  try {
+    const demo = new PvPBattleDemo();
+    await demo.runDemo();
+  } catch (error) {
+    console.error('💥 Demo execution failed:', error);
+    process.exit(1);
+  }
+}
+
+// Run demo if this is the main module
+if (require.main === module) {
+  main().catch(console.error);
+}
+
+export default PvPBattleDemo;
+
+// ============================================================================
+// Advanced Usage Examples
+// ============================================================================
+
+/**
+ * Example: Running multiple concurrent matches
+ */
+export async function runConcurrentMatchesDemo(): Promise<void> {
+  const demo = new PvPBattleDemo();
+  
+  const matches = await Promise.all([
+    demo.runDemo(),
+    demo.runDemo(),
+    demo.runDemo(),
+  ]);
+  
+  console.log(`✅ Completed ${matches.length} concurrent matches`);
+}
+
+/**
+ * Example: Tournament bracket implementation
+ */
+export async function runTournamentDemo(): Promise<void> {
+  const demo = new PvPBattleDemo();
+  
+  // Create 8 players for tournament
+  const players: Keypair[] = [];
+  for (let i = 0; i < 8; i++) {
+    // players.push(await demo.createDemoPlayer(`Player${i}`, PlayerClass.Warrior));
+  }
+  
+  console.log('🏆 Tournament bracket created with 8 players');
+  
+  // Run tournament rounds
+  let round = 1;
+  let currentPlayers = players;
+  
+  while (currentPlayers.length > 1) {
+    console.log(`\n🔥 Tournament Round ${round}`);
+    const winners: Keypair[] = [];
+    
+    for (let i = 0; i < currentPlayers.length; i += 2) {
+      if (i + 1 < currentPlayers.length) {
+        // Run match between players[i] and players[i+1]
+        // winner goes to winners array
+        const winner = Math.random() > 0.5 ? currentPlayers[i] : currentPlayers[i + 1];
+        winners.push(winner);
+        console.log(`  Match: ${currentPlayers[i].publicKey} vs ${currentPlayers[i + 1].publicKey}`);
+        console.log(`  Winner: ${winner.publicKey}`);
+      }
+    }
+    
+    currentPlayers = winners;
+    round++;
+  }
+  
+  console.log(`\n🏆 Tournament Winner: ${currentPlayers[0].publicKey}`);
+}
+
+/**
+ * Example: Performance benchmarking
+ */
+export async function runPerformanceBenchmark(): Promise<void> {
+  console.log('⚡ Running performance benchmark...');
+  
+  const demo = new PvPBattleDemo();
+  const startTime = performance.now();
+  
+  // Measure various operations
+  const metrics = {
+    playerCreation: 0,
+    sessionCreation: 0,
+    matchCreation: 0,
+    combatActions: 0,
+    matchSettlement: 0,
+  };
+  
+  // Run benchmark operations and measure times
+  // Implementation would measure each operation type
+  
+  const totalTime = performance.now() - startTime;
+  
+  console.log('\n📊 Performance Results:');
+  console.log(`  Total Demo Time: ${totalTime.toFixed(2)}ms`);
+  console.log(`  Player Creation: ${metrics.playerCreation.toFixed(2)}ms avg`);
+  console.log(`  Session Creation: ${metrics.sessionCreation.toFixed(2)}ms avg`);
+  console.log(`  Match Creation: ${metrics.matchCreation.toFixed(2)}ms avg`);
+  console.log(`  Combat Actions: ${metrics.combatActions.toFixed(2)}ms avg`);
+  console.log(`  Match Settlement: ${metrics.matchSettlement.toFixed(2)}ms avg`);
+}

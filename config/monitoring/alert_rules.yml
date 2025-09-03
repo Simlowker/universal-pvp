@@ -1,0 +1,262 @@
+# Prometheus Alert Rules for Universal PVP
+# Critical alerts for production monitoring
+
+groups:
+  - name: strategic_duel_critical
+    interval: 30s
+    rules:
+      # High-priority game performance alerts
+      - alert: ActionLatencyTooHigh
+        expr: strategic_duel_action_latency_ms_p95 > 100
+        for: 2m
+        labels:
+          severity: critical
+          component: strategic_duel
+          alert_type: performance
+        annotations:
+          summary: "Strategic Duel action latency exceeds 100ms"
+          description: "P95 action latency is {{ $value }}ms, exceeding the 100ms threshold. Game experience degraded."
+          impact: "Players experiencing slow game actions"
+          action: "Check MagicBlock service performance, optimize transaction processing"
+
+      - alert: TransactionCostTooHigh
+        expr: strategic_duel_transaction_cost_lamports_avg > 100000
+        for: 5m
+        labels:
+          severity: critical
+          component: cost_management
+          alert_type: financial
+        annotations:
+          summary: "Transaction costs exceeding budget"
+          description: "Average transaction cost is {{ $value }} lamports ({{ $value | humanize }}), exceeding 100k lamports threshold"
+          impact: "Increased operational costs, potential player deterrence"
+          action: "Optimize transaction batching, review gas fee strategy"
+
+      - alert: GameSessionFailureRate
+        expr: (strategic_duel_failed_sessions / strategic_duel_total_sessions) * 100 > 10
+        for: 3m
+        labels:
+          severity: critical
+          component: session_management
+          alert_type: reliability
+        annotations:
+          summary: "High game session failure rate"
+          description: "{{ $value | humanizePercentage }} of game sessions failing, exceeding 10% threshold"
+          impact: "Players unable to start or complete games"
+          action: "Check MagicBlock connectivity, validate session key management"
+
+  - name: strategic_duel_warning
+    interval: 60s
+    rules:
+      - alert: CostTargetMissed
+        expr: strategic_duel_cost_within_target_rate < 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: cost_management
+          alert_type: financial
+        annotations:
+          summary: "Cost targets not being met consistently"
+          description: "Only {{ $value | humanizePercentage }} of transactions within cost target (target: 90%)"
+          impact: "Budget overrun risk, operational cost increase"
+          action: "Review cost estimation algorithm, optimize transaction patterns"
+
+      - alert: WebSocketConnectionDrops
+        expr: rate(strategic_duel_websocket_disconnections[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          component: websocket
+          alert_type: connectivity
+        annotations:
+          summary: "High WebSocket disconnection rate"
+          description: "WebSocket disconnection rate: {{ $value }} per second, affecting real-time gameplay"
+          impact: "Degraded real-time game experience"
+          action: "Check WebSocket server stability, network connectivity"
+
+      - alert: SlowSessionInitialization
+        expr: strategic_duel_session_init_duration_ms_p95 > 5000
+        for: 5m
+        labels:
+          severity: warning
+          component: session_management
+          alert_type: performance
+        annotations:
+          summary: "Slow session initialization"
+          description: "P95 session initialization time: {{ $value }}ms, exceeding 5 second threshold"
+          impact: "Poor user experience during game startup"
+          action: "Optimize session key creation, check MagicBlock response times"
+
+  - name: system_critical
+    interval: 30s
+    rules:
+      - alert: HighMemoryUsage
+        expr: (system_memory_MemAvailable_bytes / system_memory_MemTotal_bytes) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+          alert_type: resource
+        annotations:
+          summary: "Critical memory usage"
+          description: "Available memory: {{ $value | humanizePercentage }}, below 10% threshold"
+          impact: "System instability, potential OOM kills"
+          action: "Scale up instance, investigate memory leaks"
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(system_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+          alert_type: resource
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage: {{ $value | humanizePercentage }}, exceeding 80% threshold"
+          impact: "Performance degradation, slow response times"
+          action: "Scale horizontally, optimize CPU-intensive operations"
+
+      - alert: DiskSpaceRunningOut
+        expr: (system_filesystem_avail_bytes / system_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+          alert_type: resource
+        annotations:
+          summary: "Critical disk space shortage"
+          description: "Available disk space: {{ $value | humanizePercentage }}, below 10% threshold"
+          impact: "Application may crash, data loss risk"
+          action: "Increase disk capacity, clean up old logs and data"
+
+  - name: database_critical
+    interval: 60s
+    rules:
+      - alert: DatabaseConnectionPoolExhaustion
+        expr: postgresql_connections_active / postgresql_connections_max > 0.9
+        for: 3m
+        labels:
+          severity: critical
+          component: database
+          alert_type: resource
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Active connections: {{ $value | humanizePercentage }} of maximum"
+          impact: "New database connections may fail"
+          action: "Increase connection pool size, check for connection leaks"
+
+      - alert: SlowDatabaseQueries
+        expr: postgresql_query_duration_p95 > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+          alert_type: performance
+        annotations:
+          summary: "Slow database queries detected"
+          description: "P95 query duration: {{ $value }}s, exceeding 5 second threshold"
+          impact: "Slow application response times"
+          action: "Optimize slow queries, check database indexes"
+
+  - name: blockchain_critical
+    interval: 120s
+    rules:
+      - alert: SolanaNetworkCongestion
+        expr: solana_network_tps_current < 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: blockchain
+          alert_type: external
+        annotations:
+          summary: "Solana network congestion detected"
+          description: "Current TPS: {{ $value }}, below 1000 TPS threshold"
+          impact: "Slower transaction confirmations, increased costs"
+          action: "Monitor network conditions, consider priority fee adjustments"
+
+      - alert: MagicBlockServiceDown
+        expr: up{job="magicblock-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: magicblock
+          alert_type: availability
+        annotations:
+          summary: "MagicBlock service unavailable"
+          description: "MagicBlock service is down, affecting game functionality"
+          impact: "Strategic Duel games cannot be played"
+          action: "Restart MagicBlock service, check network connectivity"
+
+  - name: business_critical
+    interval: 300s
+    rules:
+      - alert: LowGameVolume
+        expr: rate(strategic_duel_games_started[1h]) < 0.1
+        for: 30m
+        labels:
+          severity: warning
+          component: business
+          alert_type: metrics
+        annotations:
+          summary: "Low game activity detected"
+          description: "Game start rate: {{ $value }} per second over last hour"
+          impact: "Reduced user engagement, potential revenue impact"
+          action: "Check user experience, investigate potential issues"
+
+      - alert: HighErrorRate
+        expr: (rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m])) * 100 > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+          alert_type: reliability
+        annotations:
+          summary: "High API error rate"
+          description: "{{ $value | humanizePercentage }} of API requests returning 5xx errors"
+          impact: "Poor user experience, potential data loss"
+          action: "Check application logs, investigate error causes"
+
+  - name: security_alerts
+    interval: 60s
+    rules:
+      - alert: SuspiciousActivity
+        expr: rate(strategic_duel_suspicious_actions[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: security
+          alert_type: security
+        annotations:
+          summary: "Suspicious activity detected"
+          description: "{{ $value }} suspicious actions per second detected"
+          impact: "Potential security breach or cheating attempt"
+          action: "Review security logs, investigate flagged activities"
+
+      - alert: RateLimitExceeded
+        expr: rate(http_requests_rate_limited[1m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+          alert_type: security
+        annotations:
+          summary: "High rate limiting activity"
+          description: "{{ $value }} requests per second being rate limited"
+          impact: "Potential DDoS attempt or misconfigured client"
+          action: "Review rate limit policies, check for attack patterns"
+
+# Alerting inhibition rules
+inhibit_rules:
+  - source_matchers:
+      - severity=critical
+    target_matchers:
+      - severity=warning
+    equal:
+      - component
+
+  - source_matchers:
+      - alert_type=availability
+    target_matchers:
+      - alert_type=performance
+    equal:
+      - component

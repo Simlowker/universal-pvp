@@ -1,0 +1,514 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  output        = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  walletId    String   @unique
+  username    String?  @unique
+  displayName String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Game stats
+  gamesPlayed   Int     @default(0)
+  gamesWon      Int     @default(0)
+  gamesLost     Int     @default(0)
+  gamesDraw     Int     @default(0) // Track draws separately
+  totalEarnings Decimal @default(0) @db.Decimal(15, 6) // Optimized precision
+  totalSpent    Decimal @default(0) @db.Decimal(15, 6)
+  winRate       Float   @default(0)
+
+  // Player Rating
+  rating        Int    @default(1200) // ELO rating
+  ratingHistory Json[] @default([]) // Rating changes over time
+  peakRating    Int    @default(1200)
+
+  // Profit & Loss
+  netPnL     Decimal @default(0) @db.Decimal(15, 6)
+  dailyPnL   Decimal @default(0) @db.Decimal(15, 6)
+  weeklyPnL  Decimal @default(0) @db.Decimal(15, 6)
+  monthlyPnL Decimal @default(0) @db.Decimal(15, 6)
+  allTimePnL Decimal @default(0) @db.Decimal(15, 6)
+
+  // Engagement metrics
+  lastActiveAt  DateTime?
+  streakDays    Int       @default(0)
+  longestStreak Int       @default(0)
+  totalPlayTime Int       @default(0) // minutes
+
+  // Risk Management
+  maxLossPerDay Decimal? @db.Decimal(18, 9)
+  maxBetSize    Decimal? @db.Decimal(18, 9)
+  autoStopLoss  Boolean  @default(false)
+
+  // Account status
+  isActive    Boolean   @default(true)
+  isBanned    Boolean   @default(false)
+  bannedUntil DateTime?
+  banReason   String?
+  
+  // Player tier/VIP status
+  tier         PlayerTier @default(BRONZE)
+  vipLevel     Int        @default(0)
+  
+  // Seasonal data
+  seasonRating Int        @default(1200)
+  seasonGames  Int        @default(0)
+  seasonWins   Int        @default(0)
+
+  // Relationships
+  gamesAsPlayer1     Game[]        @relation("Player1Games")
+  gamesAsPlayer2     Game[]        @relation("Player2Games")
+  actions            GameAction[]
+  sessions           Session[]
+  transactions       Transaction[]
+  costMetrics        CostMetrics[]
+  playerStats        PlayerStats?  @relation("PlayerStats")
+  leaderboardEntries Leaderboard[] @relation("LeaderboardEntries")
+
+  @@index([rating, gamesPlayed])
+  @@index([netPnL, lastActiveAt])
+  @@index([winRate, rating])
+  @@index([walletId, isActive]) // Add isActive field
+  @@index([createdAt, rating])
+  @@map("players")
+}
+
+model Game {
+  id     String @id @default(cuid())
+  gameId String @unique // Public game ID
+
+  // Players
+  player1Id String
+  player2Id String? // null for pending matches
+  player1   Player  @relation("Player1Games", fields: [player1Id], references: [id])
+  player2   Player? @relation("Player2Games", fields: [player2Id], references: [id])
+
+  // Game state
+  status    GameStatus @default(WAITING)
+  gameType  GameType
+  betAmount Decimal    @db.Decimal(12, 6) // SOL amounts rarely need 9 decimal places
+
+  // Game data
+  gameData Json? // Game-specific state (health, positions, etc.)
+  seed     String? // VRF seed for randomness
+  vrfProof String? // VRF proof for verifiable randomness
+
+  // Game configuration
+  maxRounds  Int            @default(20)
+  timeLimit  Int? // seconds per round
+  difficulty GameDifficulty @default(NORMAL)
+
+  // Betting and odds
+  player1Odds Decimal @default(1.0) @db.Decimal(6, 3) // More precision for odds
+  player2Odds Decimal @default(1.0) @db.Decimal(6, 3)
+  houseEdge   Decimal @default(0.05) @db.Decimal(8, 6) // High precision for edge calculations
+
+  // Game attestation
+  stateRoot   String? // Merkle root of game state
+  attestation Json? // ZK attestation data
+  finalProof  String? // Final game proof
+
+  // Timestamps
+  createdAt DateTime  @default(now())
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  // Results
+  winnerId  String?
+  winReason WinReason?
+
+  // Blockchain
+  escrowTx     String? // Transaction hash for escrow creation
+  settlementTx String? // Transaction hash for settlement
+
+  // Relationships
+  actions GameAction[]
+  proofs  Proof[]
+
+  @@index([status, gameType, createdAt])
+  @@index([player1Id, status, endedAt])
+  @@index([player2Id, status, endedAt])
+  @@index([betAmount, gameType, createdAt])
+  @@index([winnerId, winReason, endedAt])
+  @@index([gameType, status, betAmount])
+  @@map("games")
+}
+
+model GameAction {
+  id       String @id @default(cuid())
+  gameId   String
+  playerId String
+
+  game   Game   @relation(fields: [gameId], references: [id])
+  player Player @relation(fields: [playerId], references: [id])
+
+  // Action details
+  actionType  ActionType
+  actionData  Json // Action-specific data
+  timestamp   DateTime   @default(now())
+  roundNumber Int        @default(1)
+
+  // Latency tracking
+  clientTimestamp DateTime? // When action was initiated on client
+  serverLatency   Int? // ms between client and server
+  networkLatency  Int? // estimated network latency
+
+  // Verification
+  isValid   Boolean @default(true)
+  proofHash String? // Hash of the proof for this action
+  signature String? // Player signature for action
+
+  @@index([gameId, timestamp])
+  @@index([playerId, actionType, timestamp])
+  @@index([gameId, roundNumber, actionType])
+  @@map("game_actions")
+}
+
+model Proof {
+  id       String @id @default(cuid())
+  gameId   String
+  playerId String
+
+  game Game @relation(fields: [gameId], references: [id])
+
+  // Proof data
+  proofType  ProofType
+  proofData  Json // ZK proof or other verification data
+  hash       String    @unique
+  transcript String? // Proof transcript for verification
+  weights    Json? // Neural network weights if applicable
+  vrfOutput  String? // VRF output for randomness proofs
+
+  // Verification status
+  status     ProofStatus @default(PENDING)
+  verifiedAt DateTime?
+  verifier   String? // Who/what verified this proof
+
+  createdAt DateTime @default(now())
+
+  @@index([gameId, status])
+  @@map("proofs")
+}
+
+model Session {
+  id       String @id @default(cuid())
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+
+  // Session data
+  sessionToken String  @unique
+  ipAddress    String?
+  userAgent    String?
+
+  // Delegation support
+  delegatedFrom    String? // Original session if this is delegated
+  delegationExpiry DateTime? // When delegation expires
+  permissions      String[]  @default([]) // Specific permissions granted
+
+  // Timestamps
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+
+  // Status
+  isActive Boolean @default(true)
+
+  @@index([playerId, isActive])
+  @@map("sessions")
+}
+
+model Transaction {
+  id       String @id @default(cuid())
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+
+  // Transaction details
+  type     TransactionType
+  amount   Decimal         @db.Decimal(12, 6) // Optimized for SOL
+  currency Currency        @default(SOL)
+
+  // Blockchain data
+  signature   String? @unique // Solana transaction signature
+  blockHeight BigInt?
+  slot        BigInt?
+
+  // Status
+  status TransactionStatus @default(PENDING)
+
+  // Metadata
+  metadata Json? // Additional transaction data
+  gameId   String? // Associated game if applicable
+
+  // Settlement details
+  expectedAmount Decimal? @db.Decimal(12, 6) // Expected amount
+  actualAmount   Decimal? @db.Decimal(12, 6) // Actual settled amount
+  fees           Decimal? @db.Decimal(10, 6) // Transaction fees
+  slippage       Decimal? @db.Decimal(8, 6) // Price slippage if applicable
+
+  // Performance metrics
+  confirmationTime Int? // seconds to confirm
+  retryCount       Int     @default(0)
+  errorCode        String?
+  errorMessage     String?
+
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+
+  @@index([playerId, status])
+  @@index([signature])
+  @@index([type, status, createdAt])
+  @@index([currency, amount, createdAt])
+  @@index([gameId, type, status]) // For game-related transactions
+  @@map("transactions")
+}
+
+model CostMetrics {
+  id       String  @id @default(cuid())
+  playerId String?
+  player   Player? @relation(fields: [playerId], references: [id])
+
+  // Cost categories
+  category  CostCategory
+  operation String // Specific operation name
+
+  // Metrics
+  costUsd      Decimal @db.Decimal(10, 6)
+  solanaFees   Decimal @db.Decimal(12, 6) // Optimized precision
+  computeUnits BigInt? // Solana compute units used
+
+  // Resource utilization
+  cpuUsage     Float? // CPU utilization percentage
+  memoryUsage  Float? // Memory usage in MB
+  networkBytes BigInt? // Network bytes transferred
+
+  // Timing
+  executionTime Int? // milliseconds
+  timestamp     DateTime @default(now())
+
+  // Context
+  gameId   String?
+  metadata Json?
+
+  // Network congestion tracking
+  congestionLevel CongestionLevel?
+  priorityFee     Decimal?         @db.Decimal(10, 6)
+  baseFee         Decimal?         @db.Decimal(10, 6)
+  totalFee        Decimal?         @db.Decimal(10, 6)
+
+  // Cost optimization
+  isOptimized      Boolean  @default(false)
+  optimizationTips String[] @default([])
+  potentialSavings Decimal? @db.Decimal(10, 6)
+
+  @@index([category, timestamp])
+  @@index([playerId, timestamp])
+  @@map("cost_metrics")
+}
+
+model PlayerStats {
+  id       String @id @default(cuid())
+  playerId String @unique
+  player   Player @relation("PlayerStats", fields: [playerId], references: [id])
+
+  // Daily aggregated stats
+  date        DateTime @db.Date
+  gamesPlayed Int      @default(0)
+  gamesWon    Int      @default(0)
+  gamesLost   Int      @default(0)
+  gamesDraw   Int      @default(0)
+
+  // Performance metrics
+  avgGameDuration Int? // Average game duration in seconds
+  winStreaks      Int  @default(0)
+  bestStreak      Int  @default(0)
+  ratingChange    Int  @default(0)
+
+  // Financial metrics
+  totalWagered Decimal @default(0) @db.Decimal(12, 6)
+  netPnL       Decimal @default(0) @db.Decimal(12, 6)
+  biggestWin   Decimal @default(0) @db.Decimal(12, 6)
+  biggestLoss  Decimal @default(0) @db.Decimal(12, 6)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, date])
+  @@index([date, netPnL])
+  @@index([date, gamesPlayed])
+  @@map("player_stats")
+}
+
+model Leaderboard {
+  id       String @id @default(cuid())
+  playerId String
+  player   Player @relation("LeaderboardEntries", fields: [playerId], references: [id])
+
+  // Leaderboard type and period
+  type      LeaderboardType
+  period    LeaderboardPeriod
+  startDate DateTime
+  endDate   DateTime
+
+  // Rankings
+  rank         Int
+  previousRank Int?
+  rating       Int
+
+  // Stats for this period
+  gamesPlayed Int
+  winRate     Float
+  netPnL      Decimal @db.Decimal(12, 6)
+
+  // Computed at creation
+  createdAt DateTime @default(now())
+
+  @@unique([type, period, startDate, playerId])
+  @@index([type, period, startDate, rank])
+  @@index([type, period, startDate, rating])
+  @@map("leaderboards")
+}
+
+// Enums
+enum GameStatus {
+  WAITING // Waiting for second player
+  STARTING // Game is starting (initialization)
+  ACTIVE // Game in progress
+  PAUSED // Game paused
+  SETTLING // Settlement in progress
+  COMPLETED // Game finished
+  CANCELLED // Game cancelled
+  DISPUTED // Under dispute resolution
+}
+
+enum GameType {
+  QUICK_MATCH // 1v1 quick match
+  RANKED_MATCH // 1v1 ranked match
+  TOURNAMENT // Tournament match
+  PRACTICE // Practice mode
+}
+
+enum WinReason {
+  ELIMINATION // Player defeated opponent
+  TIMEOUT // Opponent timed out
+  FORFEIT // Opponent forfeited
+  DISPUTE // Won via dispute resolution
+  DRAW // Game ended in draw/tie
+  DISCONNECT // Opponent disconnected
+}
+
+enum ActionType {
+  MOVE // Player movement
+  ATTACK // Attack action
+  DEFEND // Defensive action
+  SPECIAL // Special ability
+  ITEM_USE // Item usage
+  SURRENDER // Forfeit the game
+  CHAT // Chat message
+  EMOTE // Player emote/gesture
+  PAUSE // Request game pause
+  READY // Ready check response
+}
+
+enum ProofType {
+  GAME_STATE // Proof of game state
+  ACTION_VALID // Proof that action is valid
+  WIN_CONDITION // Proof of win condition met
+  RANDOMNESS // VRF proof for randomness
+}
+
+enum ProofStatus {
+  PENDING // Awaiting verification
+  VERIFIED // Proof verified
+  INVALID // Proof is invalid
+  EXPIRED // Proof verification timed out
+}
+
+enum TransactionType {
+  DEPOSIT // Player deposit
+  WITHDRAWAL // Player withdrawal
+  BET // Game bet/escrow
+  WINNINGS // Game winnings payout
+  FEE // Platform fee
+  REFUND // Refunded amount
+}
+
+enum TransactionStatus {
+  PENDING // Transaction submitted
+  CONFIRMED // Transaction confirmed on chain
+  FAILED // Transaction failed
+  CANCELLED // Transaction cancelled
+}
+
+enum CostCategory {
+  TRANSACTION_FEE // Solana transaction fees
+  COMPUTE_COST // Compute unit costs
+  RENT_COST // Account rent costs
+  INFRASTRUCTURE // Server/infrastructure costs
+  THIRD_PARTY // External API costs
+  STORAGE // Data storage costs
+  VRF_COST // VRF randomness costs
+  PROOF_VERIFICATION // ZK proof verification costs
+}
+
+enum Currency {
+  SOL
+  USDC
+  USDT
+  BONK
+  NATIVE_TOKEN
+}
+
+enum CongestionLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum LeaderboardType {
+  RATING // ELO rating leaderboard
+  WINNINGS // Total winnings/PnL
+  WIN_RATE // Win rate percentage
+  GAMES_PLAYED // Most active players
+  STREAK // Current win streak
+  VOLUME // Total volume wagered
+}
+
+enum LeaderboardPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  SEASONAL
+  ALL_TIME
+}
+
+enum PlayerTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+  DIAMOND
+  MASTER
+  GRANDMASTER
+}
+
+enum GameDifficulty {
+  EASY
+  NORMAL
+  HARD
+  EXPERT
+  NIGHTMARE
+}

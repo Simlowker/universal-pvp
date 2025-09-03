@@ -1,0 +1,196 @@
+name: Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+  
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+      pre_release:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Get version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION=${{ github.event.inputs.version }}
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Generate changelog
+        id: changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            CHANGELOG=$(awk '/^## \[/{if(p) exit; p=1; next} p' CHANGELOG.md)
+          else
+            CHANGELOG="Release ${{ steps.version.outputs.version }}"
+          fi
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+      - name: Create GitHub release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ github.event.inputs.pre_release || false }}
+
+  build-and-upload:
+    runs-on: ubuntu-latest
+    needs: create-release
+    strategy:
+      matrix:
+        target: [linux-x64, macos-x64, windows-x64]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: '1.75'
+          override: true
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build for ${{ matrix.target }}
+        run: |
+          npm run build:${{ matrix.target }}
+          
+      - name: Package artifacts
+        run: |
+          mkdir -p release
+          if [[ "${{ matrix.target }}" == "windows-x64" ]]; then
+            zip -r release/sol-duel-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.zip dist/
+          else
+            tar -czf release/sol-duel-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz dist/
+          fi
+          
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: release/sol-duel-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.*
+          asset_name: sol-duel-${{ needs.create-release.outputs.version }}-${{ matrix.target }}
+          asset_content_type: application/octet-stream
+
+  docker-release:
+    runs-on: ubuntu-latest
+    needs: create-release
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Build and push Docker images
+        run: |
+          VERSION=${{ needs.create-release.outputs.version }}
+          
+          # Build multi-platform images
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --tag ghcr.io/${{ github.repository_owner }}/sol-duel-frontend:$VERSION \
+            --tag ghcr.io/${{ github.repository_owner }}/sol-duel-frontend:latest \
+            --file deployment/docker/Dockerfile.frontend \
+            --push .
+            
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --tag ghcr.io/${{ github.repository_owner }}/sol-duel-api:$VERSION \
+            --tag ghcr.io/${{ github.repository_owner }}/sol-duel-api:latest \
+            --file deployment/docker/Dockerfile.api \
+            --push .
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [create-release, build-and-upload, docker-release]
+    environment: production
+    if: github.ref == 'refs/heads/main' && !github.event.inputs.pre_release
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Deploy to production
+        run: |
+          echo "Deploying release ${{ needs.create-release.outputs.version }} to production..."
+          # Production deployment steps
+          
+      - name: Update production database
+        run: |
+          chmod +x deployment/scripts/migrate-db.sh
+          ./deployment/scripts/migrate-db.sh prod
+          
+      - name: Verify deployment
+        run: |
+          chmod +x deployment/scripts/verify-deployment.sh
+          ./deployment/scripts/verify-deployment.sh prod ${{ needs.create-release.outputs.version }}
+
+  post-release:
+    runs-on: ubuntu-latest
+    needs: [create-release, deploy-production]
+    if: always()
+    
+    steps:
+      - name: Update documentation
+        run: |
+          echo "Updating documentation for release ${{ needs.create-release.outputs.version }}"
+          
+      - name: Notify stakeholders
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#releases'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: |
+            🚀 Release ${{ needs.create-release.outputs.version }} has been deployed to production!
+            📋 View release notes: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.create-release.outputs.version }}

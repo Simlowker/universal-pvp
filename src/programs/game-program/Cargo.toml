@@ -1,0 +1,29 @@
+[package]
+name = "sol-duel-game"
+version = "0.1.0"
+description = "SOL Duel Core Game Program"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "sol_duel_game"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl = { workspace = true }
+solana-program = { workspace = true }
+spl-token = { workspace = true }
+shared = { path = "../shared" }
+
+[dev-dependencies]
+solana-program-test = { workspace = true }
+solana-sdk = { workspace = true }
+tokio = { workspace = true }
+assert_matches = { workspace = true }

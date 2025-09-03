@@ -1,0 +1,187 @@
+{
+  "name": "Universal PVP - Mobile Gaming Arena",
+  "short_name": "Universal PVP",
+  "description": "Cross-platform mobile gaming experience with Solana blockchain integration",
+  "version": "1.0.0",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait-primary",
+  "theme_color": "#0ea5e9",
+  "background_color": "#0a0a0b",
+  "lang": "en",
+  "scope": "/",
+  "categories": ["games", "entertainment", "finance"],
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Quick Battle",
+      "short_name": "Battle",
+      "description": "Jump into a quick PvP battle",
+      "url": "/battle?mode=quick",
+      "icons": [
+        {
+          "src": "/icons/battle-shortcut.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        }
+      ]
+    },
+    {
+      "name": "Tournaments",
+      "short_name": "Tournament",
+      "description": "Browse active tournaments",
+      "url": "/tournaments",
+      "icons": [
+        {
+          "src": "/icons/tournament-shortcut.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        }
+      ]
+    },
+    {
+      "name": "Wallet",
+      "short_name": "Wallet",
+      "description": "Manage your SOL and rewards",
+      "url": "/wallet",
+      "icons": [
+        {
+          "src": "/icons/wallet-shortcut.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/maskable-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-home.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Mobile Home Screen"
+    },
+    {
+      "src": "/screenshots/mobile-battle.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Mobile Battle Arena"
+    },
+    {
+      "src": "/screenshots/mobile-wallet.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Mobile Wallet Interface"
+    }
+  ],
+  "edge_side_panel": {
+    "preferred_width": 480
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+solana",
+      "url": "/solana?action=%s"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/import-character",
+      "accept": {
+        "application/json": [".json"]
+      },
+      "icons": [
+        {
+          "src": "/icons/character-import.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ],
+      "launch_type": "single-client"
+    }
+  ],
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "display_override": ["window-controls-overlay", "fullscreen", "standalone"],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.universalpvp.mobile",
+      "id": "com.universalpvp.mobile"
+    },
+    {
+      "platform": "itunes",
+      "url": "https://apps.apple.com/app/universal-pvp/id123456789",
+      "id": "123456789"
+    }
+  ]
+}

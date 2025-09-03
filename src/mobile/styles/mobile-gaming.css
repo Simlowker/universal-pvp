@@ -1,0 +1,542 @@
+/* Mobile Gaming Optimized Styles */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* CSS Variables for theming */
+:root {
+  --mobile-header-height: 64px;
+  --mobile-nav-height: 72px;
+  --mobile-safe-area-top: env(safe-area-inset-top);
+  --mobile-safe-area-bottom: env(safe-area-inset-bottom);
+  --mobile-safe-area-left: env(safe-area-inset-left);
+  --mobile-safe-area-right: env(safe-area-inset-right);
+  
+  /* Touch target sizes */
+  --touch-target-min: 48px;
+  --touch-target-comfortable: 56px;
+  --touch-target-large: 64px;
+  
+  /* Gaming colors */
+  --gaming-primary: #0ea5e9;
+  --gaming-secondary: #8b5cf6;
+  --gaming-accent: #f59e0b;
+  --gaming-success: #10b981;
+  --gaming-warning: #f59e0b;
+  --gaming-error: #ef4444;
+  --gaming-bg: #0a0a0b;
+  --gaming-surface: #1a1a1b;
+  --gaming-border: #2d2d30;
+  --gaming-text: #ffffff;
+  --gaming-muted: #9ca3af;
+  
+  /* Performance optimizations */
+  --hardware-acceleration: translateZ(0);
+  --will-change-transform: transform;
+  --will-change-opacity: opacity;
+}
+
+/* Base mobile optimizations */
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -ms-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Mobile-first container */
+.mobile-container {
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height */
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--mobile-safe-area-top);
+  padding-bottom: var(--mobile-safe-area-bottom);
+  padding-left: var(--mobile-safe-area-left);
+  padding-right: var(--mobile-safe-area-right);
+  background: var(--gaming-bg);
+  color: var(--gaming-text);
+  overflow-x: hidden;
+}
+
+/* Touch-optimized elements */
+.touch-target {
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.touch-target-comfortable {
+  min-height: var(--touch-target-comfortable);
+  min-width: var(--touch-target-comfortable);
+}
+
+.touch-target-large {
+  min-height: var(--touch-target-large);
+  min-width: var(--touch-target-large);
+}
+
+/* Mobile gaming buttons */
+.gaming-button {
+  background: linear-gradient(135deg, var(--gaming-primary) 0%, var(--gaming-secondary) 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 16px 24px;
+  font-family: 'Orbitron', monospace;
+  font-weight: 600;
+  color: white;
+  font-size: 16px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: var(--hardware-acceleration);
+  will-change: var(--will-change-transform);
+  box-shadow: 
+    0 4px 12px rgba(14, 165, 233, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.gaming-button:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 
+    0 2px 8px rgba(14, 165, 233, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.gaming-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.gaming-button:hover::before {
+  left: 100%;
+}
+
+/* Gaming button variants */
+.gaming-button-secondary {
+  background: linear-gradient(135deg, var(--gaming-surface) 0%, var(--gaming-border) 100%);
+  border: 1px solid var(--gaming-border);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.gaming-button-danger {
+  background: linear-gradient(135deg, var(--gaming-error) 0%, #dc2626 100%);
+  box-shadow: 
+    0 4px 12px rgba(239, 68, 68, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.gaming-button-success {
+  background: linear-gradient(135deg, var(--gaming-success) 0%, #059669 100%);
+  box-shadow: 
+    0 4px 12px rgba(16, 185, 129, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Action panel for mobile gaming */
+.action-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--gaming-surface);
+  border-top: 1px solid var(--gaming-border);
+  padding: 16px;
+  padding-bottom: calc(16px + var(--mobile-safe-area-bottom));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 1000;
+  transform: var(--hardware-acceleration);
+}
+
+.action-panel::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 4px;
+  background: var(--gaming-border);
+  border-radius: 2px;
+}
+
+/* Gaming grid for mobile */
+.gaming-grid {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.gaming-grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.gaming-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.gaming-grid-4 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 768px) {
+  .gaming-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Character/avatar cards */
+.character-card {
+  background: var(--gaming-surface);
+  border: 1px solid var(--gaming-border);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transform: var(--hardware-acceleration);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.character-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    rgba(14, 165, 233, 0.1) 0%, 
+    rgba(139, 92, 246, 0.1) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.character-card:active::before {
+  opacity: 1;
+}
+
+.character-card:active {
+  transform: scale(0.98);
+  box-shadow: 
+    0 8px 24px rgba(14, 165, 233, 0.2),
+    0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Health/mana bars optimized for mobile */
+.status-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.status-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.status-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255, 255, 255, 0.3), 
+    transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.health-bar {
+  background: linear-gradient(90deg, #ef4444, #f97316, #eab308, #84cc16, #22c55e);
+}
+
+.mana-bar {
+  background: linear-gradient(90deg, #3b82f6, #6366f1, #8b5cf6);
+}
+
+/* Battle log for mobile */
+.battle-log {
+  background: rgba(26, 26, 27, 0.95);
+  border: 1px solid var(--gaming-border);
+  border-radius: 12px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.battle-log-entry {
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--gaming-text);
+  transform: var(--hardware-acceleration);
+  animation: slideInLog 0.3s ease-out;
+}
+
+@keyframes slideInLog {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Mobile-specific animations */
+@keyframes battleShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-4px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+.battle-shake {
+  animation: battleShake 0.5s ease-in-out;
+}
+
+@keyframes damageFloat {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.9);
+  }
+}
+
+.damage-float {
+  animation: damageFloat 1s ease-out forwards;
+  position: absolute;
+  font-weight: bold;
+  font-size: 18px;
+  color: #ef4444;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* Loading states for mobile */
+.skeleton {
+  background: linear-gradient(90deg, 
+    var(--gaming-border) 25%, 
+    rgba(45, 45, 48, 0.5) 50%, 
+    var(--gaming-border) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Mobile modal optimizations */
+.mobile-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.mobile-modal-content {
+  background: var(--gaming-surface);
+  border: 1px solid var(--gaming-border);
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  transform: var(--hardware-acceleration);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Gesture indicators */
+.swipe-indicator {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1000;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0%, 100% {
+    opacity: 0;
+  }
+  20%, 80% {
+    opacity: 1;
+  }
+}
+
+/* iOS specific optimizations */
+@supports (-webkit-touch-callout: none) {
+  .ios-optimized {
+    -webkit-overflow-scrolling: touch;
+    -webkit-transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    -webkit-perspective: 1000;
+  }
+  
+  .gaming-button {
+    -webkit-appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Android specific optimizations */
+@media screen and (-webkit-device-pixel-ratio: 2) {
+  .android-optimized {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: subpixel-antialiased;
+  }
+}
+
+/* Dark mode preferences */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --gaming-bg: #000000;
+    --gaming-surface: #111111;
+    --gaming-border: #222222;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .gaming-button {
+    border: 2px solid white;
+  }
+  
+  .character-card {
+    border: 2px solid var(--gaming-primary);
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .battle-shake,
+  .damage-float,
+  .skeleton {
+    animation: none !important;
+  }
+}
+
+/* Landscape orientation specific styles */
+@media screen and (orientation: landscape) {
+  .mobile-container {
+    padding-top: max(var(--mobile-safe-area-top), 12px);
+    padding-bottom: max(var(--mobile-safe-area-bottom), 12px);
+  }
+  
+  .action-panel {
+    position: relative;
+    padding: 12px;
+  }
+  
+  .gaming-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Portrait orientation specific styles */
+@media screen and (orientation: portrait) {
+  .character-battle-view {
+    flex-direction: column;
+  }
+  
+  .action-panel {
+    max-height: 40vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

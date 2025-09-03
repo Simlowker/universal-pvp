@@ -1,0 +1,224 @@
+{
+  "name": "SolDuel PvP Devnet ER",
+  "version": "1.0.0",
+  "network": "devnet",
+  "description": "Ephemeral Rollup configuration for SolDuel PvP gaming on Devnet",
+  
+  "cluster": {
+    "rpcUrl": "https://api.devnet.solana.com",
+    "wsUrl": "wss://api.devnet.solana.com",
+    "commitment": "confirmed"
+  },
+  
+  "ephemeralRollup": {
+    "programId": "BOLT11111111111111111111111111111111111111111",
+    "authority": "~/.config/solana/id.json",
+    
+    "performance": {
+      "targetLatency": 30,
+      "tickRate": 33,
+      "batchSize": 50,
+      "maxConcurrentTransactions": 100,
+      "timeoutMs": 100
+    },
+    
+    "memory": {
+      "poolSize": "32MB",
+      "maxEntities": 10000,
+      "maxComponents": 50000,
+      "garbageCollectionInterval": 60000
+    },
+    
+    "networking": {
+      "useWebSockets": true,
+      "enablePipelining": true,
+      "compressionEnabled": true,
+      "maxConnections": 1000
+    },
+    
+    "state": {
+      "compressionEnabled": true,
+      "deltaCompressionEnabled": true,
+      "snapshotInterval": 300,
+      "maxStateHistory": 1000
+    },
+    
+    "autoCommit": {
+      "enabled": true,
+      "interval": 30,
+      "batchThreshold": 1000,
+      "emergencyThreshold": 5000,
+      "retryAttempts": 3,
+      "retryDelay": 1000
+    },
+    
+    "rollback": {
+      "enabled": true,
+      "maxDepth": 100,
+      "conflictResolution": "timestamp"
+    }
+  },
+  
+  "sessionKeys": {
+    "gaslessTransactions": true,
+    "defaultExpiry": 3600,
+    "maxTransactionsPerSecond": 100,
+    "maxTransactionsPerSession": 10000,
+    "autoRenewal": true,
+    "renewalThreshold": 300,
+    "maxRenewals": 10,
+    
+    "permissions": {
+      "allowed": [
+        "MOVE",
+        "ATTACK", 
+        "DEFEND",
+        "USE_ITEM",
+        "CAST_SPELL",
+        "USE_ABILITY",
+        "CHANGE_FACING"
+      ],
+      "restricted": [
+        "TRANSFER_TOKENS",
+        "ADMIN_ACTIONS",
+        "WITHDRAW_FUNDS"
+      ]
+    },
+    
+    "security": {
+      "requireSignature": true,
+      "rateLimit": {
+        "actionsPerSecond": 10,
+        "burstLimit": 20,
+        "windowSize": 1000
+      }
+    }
+  },
+  
+  "bolt": {
+    "components": {
+      "player": {
+        "size": 157,
+        "persistent": true,
+        "replicated": true,
+        "highFrequency": false
+      },
+      "health": {
+        "size": 49,
+        "persistent": true,
+        "replicated": true,
+        "highFrequency": true,
+        "replicationRate": 20
+      },
+      "position": {
+        "size": 51,
+        "persistent": true,
+        "replicated": true,
+        "highFrequency": true,
+        "replicationRate": 33,
+        "interpolated": true,
+        "smoothing": true
+      },
+      "combat": {
+        "size": 108,
+        "persistent": true,
+        "replicated": true,
+        "highFrequency": true,
+        "replicationRate": 20
+      }
+    },
+    
+    "systems": {
+      "movement": {
+        "tickRate": 33,
+        "priority": "high",
+        "parallelExecution": true,
+        "interpolation": "linear",
+        "smoothing": true,
+        "maxEntitiesPerTick": 1000
+      },
+      "combat": {
+        "tickRate": 20,
+        "priority": "high", 
+        "parallelExecution": true,
+        "maxActionsPerTick": 100,
+        "damageResolution": "immediate"
+      },
+      "effects": {
+        "tickRate": 10,
+        "priority": "medium",
+        "maxEffectsPerTick": 500
+      },
+      "matchmaking": {
+        "tickRate": 1,
+        "priority": "low",
+        "maxPlayersPerMatch": 2
+      }
+    },
+    
+    "world": {
+      "maxEntities": 1000,
+      "spatialPartitioning": true,
+      "cullingEnabled": true,
+      "cullingDistance": 1000,
+      "bounds": {
+        "minX": -10000,
+        "maxX": 10000,
+        "minY": -10000,
+        "maxY": 10000,
+        "minZ": 0,
+        "maxZ": 1000
+      }
+    },
+    
+    "optimization": {
+      "entityPooling": true,
+      "componentPacking": true,
+      "dirtyTracking": true,
+      "batchUpdates": true,
+      "lazyLoading": true
+    }
+  },
+  
+  "monitoring": {
+    "metricsEnabled": true,
+    "logLevel": "info",
+    "healthCheck": {
+      "enabled": true,
+      "interval": 30000,
+      "endpoint": "/health"
+    },
+    "performance": {
+      "trackLatency": true,
+      "trackThroughput": true,
+      "trackMemoryUsage": true,
+      "alertThresholds": {
+        "latency": 50,
+        "memoryUsage": 0.8,
+        "errorRate": 0.05
+      }
+    }
+  },
+  
+  "gameSpecific": {
+    "maxPlayersPerMatch": 2,
+    "matchTimeout": 300,
+    "turnTimeout": 30,
+    "reconnectTimeout": 60,
+    "spectatorMode": false,
+    "replaySystem": true,
+    "antiCheat": {
+      "enabled": true,
+      "speedHackDetection": true,
+      "positionValidation": true,
+      "actionValidation": true
+    }
+  },
+  
+  "fees": {
+    "priorityFeeTier": "medium",
+    "maxFeePerTransaction": 0.001,
+    "feeEstimation": "dynamic",
+    "sponsoredTransactions": true
+  }
+}

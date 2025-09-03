@@ -1,0 +1,170 @@
+# Prometheus Configuration for Universal PVP Monitoring
+# Comprehensive metrics collection for production monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'universal-pvp-monitor'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alert_rules.yml"
+  - "recording_rules.yml"
+
+# Scrape configuration
+scrape_configs:
+  # Universal PVP Backend API
+  - job_name: 'universal-pvp-api'
+    static_configs:
+      - targets: ['localhost:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:5000
+
+  # MagicBlock Service Metrics
+  - job_name: 'magicblock-service'
+    static_configs:
+      - targets: ['localhost:5001']
+    metrics_path: '/magicblock/metrics'
+    scrape_interval: 5s  # More frequent for real-time game metrics
+    scrape_timeout: 3s
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'magicblock_(.+)'
+        target_label: __name__
+        replacement: 'strategic_duel_${1}'
+
+  # Cost Monitoring Service
+  - job_name: 'cost-monitoring'
+    static_configs:
+      - targets: ['localhost:5002']
+    metrics_path: '/costs/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    params:
+      include_historical: ['true']
+
+  # Node.js Application Metrics
+  - job_name: 'nodejs-metrics'
+    static_configs:
+      - targets: ['localhost:5000']
+    metrics_path: '/nodejs-metrics'
+    scrape_interval: 15s
+
+  # Database Metrics (PostgreSQL)
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Redis Metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # System Metrics (Node Exporter)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'node_(.+)'
+        target_label: __name__
+        replacement: 'system_${1}'
+
+  # WebSocket Connection Metrics
+  - job_name: 'websocket-metrics'
+    static_configs:
+      - targets: ['localhost:5000']
+    metrics_path: '/websocket-metrics'
+    scrape_interval: 10s
+
+  # Frontend Performance Metrics (if available)
+  - job_name: 'frontend-metrics'
+    static_configs:
+      - targets: ['localhost:3000']
+    metrics_path: '/api/metrics'
+    scrape_interval: 30s
+    scheme: http
+
+  # Load Balancer Metrics (if using nginx)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 30s
+
+  # Blockchain Network Metrics
+  - job_name: 'solana-metrics'
+    static_configs:
+      - targets: ['localhost:5003']
+    metrics_path: '/solana/metrics'
+    scrape_interval: 60s  # Less frequent for blockchain data
+    scrape_timeout: 30s
+    params:
+      network: ['devnet']
+      include_costs: ['true']
+
+  # Custom Application Metrics
+  - job_name: 'custom-metrics'
+    static_configs:
+      - targets: ['localhost:5000']
+    metrics_path: '/custom-metrics'
+    scrape_interval: 15s
+    metric_relabel_configs:
+      # Rename strategic duel specific metrics
+      - source_labels: [__name__]
+        regex: 'strategic_duel_(.+)'
+        target_label: game_type
+        replacement: 'strategic_duel'
+      - source_labels: [__name__]
+        regex: 'strategic_duel_(.+)'
+        target_label: __name__
+        replacement: 'game_${1}'
+
+# Remote write configuration (for long-term storage)
+remote_write:
+  - url: "http://victoriametrics:8428/api/v1/write"
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'strategic_duel_.*'
+        target_label: __tmp_keep
+        replacement: 'true'
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 10
+      capacity: 10000
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true
+
+# Web configuration
+web:
+  console.templates: /etc/prometheus/consoles
+  console.libraries: /etc/prometheus/console_libraries
+  enable-lifecycle: true
+  enable-admin-api: true
