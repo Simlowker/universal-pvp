@@ -6,7 +6,7 @@
   "main": "src/backend/server.js",
   "scripts": {
     "dev": "next dev",
-    "build": "cd magicblock-pvp && npm install && npm run build",
+    "build": "cd magicblock-pvp && npm install && npm run build:web",
     "start": "next start",
     "postinstall": "cd magicblock-pvp && npm install",
     "lint": "next lint",
