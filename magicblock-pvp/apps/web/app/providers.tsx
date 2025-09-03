@@ -58,8 +58,14 @@ export const Providers: React.FC<ProvidersProps> = ({ children }) => {
   return (
     <ThemeProvider>
       <ConnectionProvider endpoint={network}>
-        <WalletProvider wallets={wallets} autoConnect={false} onError={(error) => console.error('Wallet error:', error)}>
-          <WalletModalProvider>
+        <WalletProvider 
+          wallets={wallets} 
+          autoConnect={false} 
+          onError={(error) => console.error('Wallet error:', error)}
+        >
+          <WalletModalProvider
+            featuredWallets={2}
+          >
             <WalletGameProvider>
               <GameProvider>
                 {children}

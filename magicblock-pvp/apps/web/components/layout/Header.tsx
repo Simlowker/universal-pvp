@@ -10,6 +10,7 @@ import { useGameSounds, useSoundSettings } from '../../hooks/useSound';
 import SimpleWalletButton from '../wallet/SimpleWalletButton';
 import TestWalletButton from '../wallet/TestWalletButton';
 import BasicWalletButton from '../wallet/BasicWalletButton';
+import DirectWalletButton from '../wallet/DirectWalletButton';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 
@@ -137,8 +138,8 @@ const Header: React.FC = () => {
 
               {/* Wallet Buttons - Debug */}
               <div className="flex flex-col gap-2">
+                <DirectWalletButton />
                 <BasicWalletButton />
-                <SimpleWalletButton />
                 <TestWalletButton />
               </div>
             </div>
