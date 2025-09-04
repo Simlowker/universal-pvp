@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.0%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(57, 255, 20, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(148, 0, 211, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(0, 191, 255, 0.05) 0%, transparent 50%);
+  }
+}
+
+@layer components {
+  .game-container {
+    @apply min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900;
+  }
+  
+  .neon-text {
+    @apply font-bold;
+    text-shadow: 
+      0 0 5px currentColor,
+      0 0 10px currentColor,
+      0 0 15px currentColor;
+  }
+  
+  .neon-border {
+    @apply border-2;
+    box-shadow: 
+      0 0 5px currentColor,
+      inset 0 0 5px currentColor;
+  }
+  
+  .glass-card {
+    @apply backdrop-blur-md bg-card/30 border border-white/20;
+  }
+  
+  .pulse-neon {
+    animation: pulse-neon 2s ease-in-out infinite;
+  }
+  
+  .game-button {
+    @apply relative overflow-hidden bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-lg;
+  }
+  
+  .game-button::before {
+    @apply content-[''] absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent;
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+  }
+  
+  .game-button:hover::before {
+    transform: translateX(100%);
+  }
+  
+  .ape-in-button {
+    @apply relative bg-gradient-to-r from-neon-green to-neon-blue text-black font-extrabold text-lg py-4 px-8 rounded-xl shadow-2xl transition-all duration-300 hover:scale-110 hover:shadow-neon-green/50;
+  }
+  
+  .ape-in-button::after {
+    @apply content-[''] absolute inset-0 bg-gradient-to-r from-neon-green to-neon-blue opacity-0 rounded-xl transition-opacity duration-300;
+  }
+  
+  .ape-in-button:hover::after {
+    @apply opacity-20;
+  }
+  
+  .odds-meter {
+    @apply relative bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 h-4 rounded-full overflow-hidden;
+  }
+  
+  .odds-indicator {
+    @apply absolute top-0 h-full w-2 bg-white shadow-lg transition-all duration-300;
+    border-radius: 50%;
+  }
+  
+  .live-feed-item {
+    @apply flex items-center space-x-3 p-3 rounded-lg bg-card/50 backdrop-blur border border-white/10 transition-all duration-300 hover:bg-card/70 hover:border-white/20;
+  }
+  
+  .win-animation {
+    @apply animate-bounce;
+  }
+  
+  .loss-animation {
+    @apply animate-pulse;
+  }
+}
+
+@layer utilities {
+  .text-shadow-sm {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  }
+  
+  .text-shadow-md {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  
+  .text-shadow-lg {
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+  }
+  
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-white/20 rounded-full;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/30;
+  }
+}
